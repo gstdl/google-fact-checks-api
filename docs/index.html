@@ -177,7 +177,7 @@
 
     .lens-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1.1rem;
       margin-top: 1.5rem;
       align-items: stretch;
@@ -401,7 +401,7 @@
     <section class="why shell" aria-labelledby="why-heading">
       <p class="section-label">Selected findings · current snapshot</p>
       <h2 class="section-heading" id="why-heading">Three signals worth investigating.</h2>
-      <p class="section-intro">Each signal maps to one analytical lens below: a static record pattern, record-level change over time, or relation-level structure.</p>
+      <p class="section-intro">Each signal maps to descriptive, temporal, or relational analysis in the reports below.</p>
       <div class="findings">
         <article class="finding">
           <span class="finding-value">82.6%</span>
@@ -425,7 +425,7 @@
       <div class="shell">
         <p class="section-label">Research workflow</p>
         <h2 class="section-heading" id="reports-heading">Build the evidence. Analyze the corpus. Apply the findings.</h2>
-        <p class="section-intro">The reports now follow their dependency order. Within corpus analysis, Descriptive, Temporal, and Network remain three non-overlapping analytical lenses.</p>
+        <p class="section-intro">The reports follow their dependency order. The EDA report owns descriptive and record-level temporal analysis; the Network report owns pairwise structure and graph evolution.</p>
 
         <section class="method-section" aria-labelledby="method-heading">
           <header class="method-heading">
@@ -446,25 +446,15 @@
         <section class="analysis-section" aria-labelledby="analysis-heading">
           <header class="analysis-heading">
             <span>Step 2 · Analyze</span>
-            <h3 id="analysis-heading">Describe. Follow change. Map relationships.</h3>
-            <p>Every analytical output has one owner: pairwise relations belong to Network; otherwise, explicit time belongs to Temporal; everything else belongs to Descriptive.</p>
+            <h3 id="analysis-heading">Describe the corpus and follow change. Map relationships.</h3>
+            <p>Two reports cover three analytical lenses without duplicating destinations: EDA handles descriptive and record-level temporal analysis, while Network handles pairwise relations and graph evolution.</p>
           </header>
 
           <div class="lens-grid">
             <article class="report eda">
-              <p class="report-number">Descriptive analysis</p>
-              <h4>What is present?</h4>
-              <p class="executive-summary"><strong>The indexed corpus is highly concentrated:</strong> the three largest publisher sites contribute 82.6% of reviewed claims, so aggregate patterns partly reflect the publisher mix. Use this analysis to establish baseline patterns in coverage, metadata quality, ratings, claimants, language, and topics before interpreting change or relationships.</p>
-              <div class="actions">
-                <a class="button primary" href="analysis.html">Open EDA report →</a>
-                <a class="button" href="analysis-with-code.html">View with code</a>
-              </div>
-            </article>
-
-            <article class="report temporal">
-              <p class="report-number">Temporal analysis</p>
-              <h4>What changes, persists, or emerges?</h4>
-              <p class="executive-summary">The temporal sections compare dated reviewed claims across calendar periods while auditing missing dates and publisher-composition changes. They describe what changes, persists, or emerges at record level without claiming causality; the analysis begins in section 4 of the shared EDA report.</p>
+              <p class="report-number">Descriptive &amp; temporal analysis</p>
+              <h4>What is present, and what changes over time?</h4>
+              <p class="executive-summary"><strong>The indexed corpus is highly concentrated:</strong> the three largest publisher sites contribute 82.6% of reviewed claims, so aggregate patterns partly reflect the publisher mix. The EDA establishes baseline patterns in coverage, metadata quality, ratings, claimants, language, and topics, then follows record-level change across calendar periods. Temporal views audit missing dates and publisher-composition changes and remain descriptive rather than causal.</p>
               <div class="actions">
                 <a class="button primary" href="analysis.html">Open EDA report →</a>
                 <a class="button" href="analysis-with-code.html">View with code</a>
@@ -484,7 +474,7 @@
 
           <aside class="reading-note">
             <strong>Classification rule</strong>
-            <p>If an output contains edges or pairwise relations, it belongs to Network. Otherwise, if time is explicit, it belongs to Temporal. Otherwise, it belongs to Descriptive. Temporal network evolution therefore remains inside Network.</p>
+            <p>If an output contains edges or pairwise relations, it belongs to Network. Otherwise, if time is explicit, it belongs to the Temporal lens inside EDA. Everything else belongs to Descriptive. Temporal graph evolution therefore remains inside Network.</p>
           </aside>
         </section>
 

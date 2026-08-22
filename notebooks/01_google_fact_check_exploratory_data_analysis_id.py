@@ -20,20 +20,102 @@ def introduce_analysis(mo):
 
 
 @app.cell(hide_code=True)
+def render_reader_executive_summary(
+    claim_text_frame,
+    claims_frame,
+    cluster_summary,
+    executive_overlap_factor,
+    executive_overview,
+    keyword_multi_record_pct,
+    mo,
+    publisher_summary,
+    quality_top_conflict,
+    record_conflict_frame,
+    review_frame,
+    topic_summary,
+):
+    summary_top3_publisher_share = float(publisher_summary.head(3)["share_pct"].sum())
+    summary_claim_date_complete = 100 * review_frame["claim_dt"].is_not_null().sum() / review_frame.height
+    summary_review_date_complete = 100 * review_frame["review_dt"].is_not_null().sum() / review_frame.height
+    summary_conflict_pct = 100 * record_conflict_frame.height / review_frame.height
+    summary_largest_topic = topic_summary.sort("claim_texts", descending=True).row(0, named=True)
+    summary_largest_cluster = cluster_summary.sort("claim_texts", descending=True).row(0, named=True)
+
+    eda_summary = mo.vstack([
+        mo.md("""
+        ## 1. Executive summary
+
+        [Corpus composition and data health](#2-corpus-composition-and-data-health) ·
+        [What changes over time?](#3-what-changes-over-time) ·
+        [Publishers and retrieval](#4-who-publishes-and-what-gets-retrieved) ·
+        [Exploratory text patterns](#5-exploratory-text-patterns) ·
+        [Audit and data](#6-methods-audit-records-and-downloads)
+        """),
+        mo.hstack([
+            mo.stat(f"{claims_frame.height:,}", label="Keyword-match rows", bordered=True),
+            mo.stat(f"{review_frame.height:,}", label="Reviewed claims", bordered=True),
+            mo.stat(f"{claim_text_frame.height:,}", label="Distinct claim texts", bordered=True),
+            mo.stat(f"{summary_top3_publisher_share:.1f}%", label="Top-three publisher share", bordered=True),
+        ], widths="equal", wrap=True),
+        mo.hstack([
+            mo.stat(f"{review_frame['review_url'].n_unique():,}", label="Distinct URLs", bordered=True),
+            mo.stat(f"{executive_overview['keyword_count']:,}", label="Keywords", bordered=True),
+            mo.stat(f"{executive_overview['publisher_count']:,}", label="Publisher sites", bordered=True),
+            mo.stat(executive_overview["date_span"], label="Usable claim-date span", bordered=True),
+        ], widths="equal", wrap=True),
+        mo.callout(
+            mo.md(
+                f"**Coverage is concentrated:** the three largest publisher sites contribute "
+                f"**{summary_top3_publisher_share:.1f}%** of reviewed claims. Claim dates are "
+                f"available for **{summary_claim_date_complete:.1f}%** of records, while review "
+                f"dates cover **{summary_review_date_complete:.1f}%**; time and lag findings use "
+                "only eligible records."
+            ),
+            kind="info",
+            title="What the corpus shows at a glance",
+        ),
+        mo.md(f"""
+        1. **Retrieval overlap matters.** **{keyword_multi_record_pct:.1f}%** of reviewed claims
+           match more than one configured query, producing a **{executive_overlap_factor:.2f}×**
+           match-to-record ratio.
+        2. **Text labels are exploratory.** The largest NMF topic is
+           **{summary_largest_topic['topic_label']}**
+           ({summary_largest_topic['share_pct']:.1f}% of unique texts), while the largest latent
+           cluster is **{summary_largest_cluster['cluster_label']}**
+           ({summary_largest_cluster['share_pct']:.1f}%). These are mechanical labels supported
+           by representative examples, not human-coded themes.
+        3. **Metadata is not perfectly stable.** **{record_conflict_frame.height:,}** reviewed-claim
+           keys ({summary_conflict_pct:.1f}%) contain a repeated-field conflict, led by
+           `{quality_top_conflict['field']}`.
+        4. **The most visible records reflect retrieval and coverage.**
+           `{executive_overview['top_publisher']}` contributes the most reviewed claims
+           (**{executive_overview['top_publisher_records']:,}**); **{executive_overview['top_year']}**
+           is the busiest eligible claim year (**{executive_overview['top_year_records']:,}**), and
+           `{executive_overview['top_keyword']}` is the broadest configured query
+           (**{executive_overview['top_keyword_records']:,}** links).
+        """),
+        mo.callout(
+            mo.md(
+                "This is a query-conditioned view of Google's indexed fact-check corpus—not a "
+                "census of Indonesian misinformation. Publisher coverage, retrieval vocabulary, "
+                "missing metadata, and heuristic NLP bound every interpretation."
+            ),
+            kind="warn",
+            title="Interpretation boundary",
+        ),
+    ])
+    eda_summary
+    return
+
+
+@app.cell(hide_code=True)
 def explain_analysis_setup(mo):
     mo.md("""
-    ## 1. Setup and analytical frames
+    ### How this report was constructed
 
-    The cached Parquet is loaded directly. No network requests or environment
-    variables are used. Because the extract contains keyword matches rather than
-    independent observations, it is reduced into three explicit analytical grains:
-
-    1. one keyword-to-reviewed-claim link for coverage and overlap;
-    2. one `(review_url, claim_text)` record for temporal and publisher analysis;
-    3. one non-empty claim text for NLP.
-
-    Dates are parsed into separate UTC columns. Rating and claimant labels are
-    only case/whitespace-normalized; raw values remain available.
+    The report reads the cached Parquet without network requests and reduces repeated
+    keyword matches into explicit record, retrieval-link, and claim-text grains. The
+    detailed grain definitions are available below for audit.
     """)
     return
 
@@ -245,14 +327,16 @@ def build_analytical_frames(
             f"**{review_frame['review_url'].n_unique():,} distinct URLs**, and "
             f"**{claim_text_frame.height:,} unique claim texts**. "
             f"There are **{record_conflict_frame.height:,}** reviewed-claim keys "
-            "with at least one metadata conflict; these are audited in section 3."
+            "with at least one metadata conflict; these are audited in section 2."
         ),
-        mo.ui.table(
-            metric_definitions,
-            selection=None,
-            pagination=False,
-            show_column_summaries=False,
-        ),
+        mo.accordion({
+            "Analytical grains and row counts": mo.ui.table(
+                metric_definitions,
+                selection=None,
+                pagination=False,
+                show_column_summaries=False,
+            ),
+        }),
     ])
     frame_section
     return (
@@ -268,26 +352,10 @@ def build_analytical_frames(
     )
 
 
-@app.cell(hide_code=True)
-def explain_executive_overview(mo):
-    mo.md("""
-    ## 2. Executive overview
-
-    These headline metrics describe **fact-check records surfaced by the 112
-    configured API queries**. They are not an estimate of how many hoaxes exist
-    in Indonesia: publisher participation, Google indexing, query vocabulary,
-    and missing dates all shape what appears here.
-    """)
-    return
-
-
 @app.cell
 def render_executive_overview(
-    claim_text_frame,
     claims_frame,
-    claims_source,
     keyword_link_frame,
-    mo,
     pl,
     review_frame,
 ):
@@ -320,48 +388,24 @@ def render_executive_overview(
     executive_date_min = executive_eligible_dates["claim_dt"].min().date()
     executive_date_max = executive_eligible_dates["claim_dt"].max().date()
 
-    executive_stats = mo.vstack([
-        mo.hstack([
-            mo.stat(f"{claims_frame.height:,}", label="Keyword-match rows", bordered=True),
-            mo.stat(f"{review_frame.height:,}", label="Reviewed claims", bordered=True),
-            mo.stat(f"{review_frame['review_url'].n_unique():,}", label="Distinct URLs", bordered=True),
-            mo.stat(f"{claim_text_frame.height:,}", label="Distinct claim texts", bordered=True),
-        ], widths="equal", wrap=True),
-        mo.hstack([
-            mo.stat(f"{keyword_link_frame['keyword'].n_unique():,}", label="Keywords", bordered=True),
-            mo.stat(f"{review_frame['publisher_site'].n_unique():,}", label="Publisher sites", bordered=True),
-            mo.stat(f"{executive_overlap_factor:.2f}×", label="Keyword overlap factor", bordered=True),
-            mo.stat(f"{executive_date_min} → {executive_date_max}", label="Usable claim-date span", bordered=True),
-        ], widths="equal", wrap=True),
-    ])
-
-    executive_section = mo.vstack([
-        executive_stats,
-        mo.callout(
-            mo.md(
-                f"**What stands out.** `{executive_top_publisher['publisher_site']}` "
-                f"contributes the most reviewed-claim records "
-                f"(**{executive_top_publisher['records']:,}**). The busiest observed "
-                f"claim year is **{executive_top_year['claim_year']}** "
-                f"(**{executive_top_year['records']:,}** dated records), while "
-                f"`{executive_top_keyword['keyword']}` is the broadest query "
-                f"(**{executive_top_keyword['records']:,}** links). Each reviewed "
-                f"claim appears in **{executive_overlap_factor:.2f} keyword rows on "
-                "average**, so the reviewed-claim grain—not raw matches—is the "
-                "correct denominator for corpus summaries."
-            ),
-            kind="info",
-            title=f"Current source: {claims_source}",
-        ),
-    ])
-    executive_section
-    return executive_overlap_factor, executive_publisher_counts
+    executive_overview = {
+        "keyword_count": keyword_link_frame["keyword"].n_unique(),
+        "publisher_count": review_frame["publisher_site"].n_unique(),
+        "date_span": f"{executive_date_min} → {executive_date_max}",
+        "top_publisher": executive_top_publisher["publisher_site"],
+        "top_publisher_records": executive_top_publisher["records"],
+        "top_year": executive_top_year["claim_year"],
+        "top_year_records": executive_top_year["records"],
+        "top_keyword": executive_top_keyword["keyword"],
+        "top_keyword_records": executive_top_keyword["records"],
+    }
+    return executive_overlap_factor, executive_overview, executive_publisher_counts
 
 
 @app.cell(hide_code=True)
 def explain_data_quality(mo):
     mo.md("""
-    ## 3. Data quality and coverage
+    ## 2. Corpus composition and data health
 
     Missingness is structural here: Google often omits claimant, claim date, or
     review date, and publishers expose different metadata. The extract also
@@ -508,7 +552,7 @@ def render_data_quality(
             y=alt.Y("field:N", title=None, sort="-x"),
             tooltip=["field:N", "missing:Q", alt.Tooltip("missing_pct:Q", format=".2f")],
         )
-        .properties(width=430, height=230, title="Missingness at reviewed-claim grain")
+        .properties(width="container", height=230, title="Missingness at reviewed-claim grain")
     )
     quality_completeness_chart = (
         alt.Chart(quality_publisher_completeness)
@@ -519,7 +563,7 @@ def render_data_quality(
             color=alt.Color("complete_pct:Q", title="Complete (%)", scale=alt.Scale(scheme="blues", domain=[0, 100])),
             tooltip=["publisher_site:N", "field:N", alt.Tooltip("complete_pct:Q", format=".2f")],
         )
-        .properties(width=360, height=230, title="Metadata completeness by publisher")
+        .properties(width="container", height=230, title="Metadata completeness by publisher")
     )
     quality_overlap_chart = (
         alt.Chart(quality_overlap_distribution)
@@ -529,7 +573,7 @@ def render_data_quality(
             y=alt.Y("reviewed_claims:Q", title="Reviewed claims"),
             tooltip=["keyword_count:O", "reviewed_claims:Q"],
         )
-        .properties(width=330, height=230, title="Keyword overlap")
+        .properties(width="container", height=230, title="Keyword overlap")
     )
     quality_top_missing = quality_missingness.sort("missing_pct", descending=True).row(0, named=True)
     quality_top_conflict = metadata_conflict_summary.sort("reviewed_claims_with_conflict", descending=True).row(0, named=True)
@@ -544,17 +588,24 @@ def render_data_quality(
             f"Of {review_frame.height:,} reviewed claims, "
             f"{review_frame.filter(pl.col('keyword_count') > 1).height:,} match more than one keyword."
         ),
-        mo.hstack([
-            quality_missing_chart,
-            quality_completeness_chart,
-            quality_overlap_chart,
-        ], align="start", wrap=True),
-        mo.md("### Integrity checks"),
-        mo.ui.table(quality_integrity_checks, selection=None, pagination=False, show_column_summaries=False),
-        mo.md("### Source data dictionary"),
-        mo.ui.table(quality_data_dictionary, selection=None, pagination=True, page_size=15),
-        mo.md("### Investigate anomalies"),
+        quality_missing_chart,
+        mo.ui.tabs({
+            "Publisher completeness": quality_completeness_chart,
+            "Keyword overlap": quality_overlap_chart,
+        }),
         mo.accordion({
+            "Integrity checks": mo.ui.table(
+                quality_integrity_checks,
+                selection=None,
+                pagination=False,
+                show_column_summaries=False,
+            ),
+            "Source data dictionary": mo.ui.table(
+                quality_data_dictionary,
+                selection=None,
+                pagination=True,
+                page_size=15,
+            ),
             f"Metadata conflicts ({quality_conflict_details.height:,})": mo.ui.table(
                 quality_conflict_details, selection=None, pagination=True, page_size=20,
                 wrapped_columns=["claim_text", "review_title"],
@@ -581,7 +632,7 @@ def render_data_quality(
 @app.cell(hide_code=True)
 def explain_temporal_patterns(mo):
     mo.md("""
-    ## 4. Temporal patterns
+    ## 3. What changes over time?
 
     `claim_date` answers when the underlying claim was dated; `review_date`
     answers when the fact-check was published. They are never mixed. Primary
@@ -697,7 +748,7 @@ def render_temporal_patterns(
             y=alt.Y("records:Q", title="Reviewed claims"),
             tooltip=["claim_year:O", "records:Q"],
         )
-        .properties(width=430, height=260, title="Reviewed claims by claim year")
+        .properties(width="container", height=260, title="Reviewed claims by claim year")
     )
     _temporal_month_bars = (
         alt.Chart(temporal_monthly)
@@ -719,7 +770,7 @@ def render_temporal_patterns(
     )
     temporal_month_chart = (
         (_temporal_month_bars + _temporal_month_line)
-        .properties(width=690, height=260, title="Monthly records and six-month rolling mean")
+        .properties(width="container", height=260, title="Monthly records and six-month rolling mean")
     )
     temporal_calendar_chart = (
         alt.Chart(temporal_calendar)
@@ -730,7 +781,7 @@ def render_temporal_patterns(
             color=alt.Color("records:Q", title="Records", scale=alt.Scale(scheme="blues")),
             tooltip=["claim_year:O", "claim_month:O", "records:Q"],
         )
-        .properties(width=520, height=290, title="Year × month coverage")
+        .properties(width="container", height=290, title="Year × month coverage")
     )
     temporal_review_chart = (
         alt.Chart(temporal_review_annual)
@@ -740,7 +791,7 @@ def render_temporal_patterns(
             y=alt.Y("records:Q", title="Reviewed claims with review date"),
             tooltip=["review_year:O", "records:Q"],
         )
-        .properties(width=430, height=260, title="Publication dates (separate, sparse field)")
+        .properties(width="container", height=260, title="Publication dates (separate, sparse field)")
     )
     temporal_lag_chart = (
         alt.Chart(temporal_lag_plotted)
@@ -750,7 +801,7 @@ def render_temporal_patterns(
             y=alt.Y("count():Q", title="Reviewed claims"),
             tooltip=[alt.Tooltip("count():Q", title="Records")],
         )
-        .properties(width=520, height=260, title="Claim-to-review lag")
+        .properties(width="container", height=260, title="Claim-to-review lag")
     )
     temporal_publisher_chart = (
         alt.Chart(temporal_publisher_year)
@@ -761,7 +812,7 @@ def render_temporal_patterns(
             color=alt.Color("publisher_group:N", title="Publisher"),
             tooltip=["claim_year:O", "publisher_group:N", "records:Q"],
         )
-        .properties(width=690, height=300, title="Publisher composition by claim year (top six + Other)")
+        .properties(width="container", height=300, title="Publisher composition by claim year (top six + Other)")
     )
     temporal_peak_month = temporal_monthly.sort("records", descending=True).row(0, named=True)
     temporal_review_completeness = 100 * temporal_review_records.height / review_frame.height
@@ -781,10 +832,28 @@ def render_temporal_patterns(
             f"{temporal_negative_lags:,} negative lags and {temporal_above_p99:,} values above "
             f"p99 ({quality_lag_p99:.0f} days) are reported but omitted from the histogram."
         ),
-        mo.hstack([_temporal_year_chart_named, temporal_month_chart], align="start", wrap=True),
-        mo.hstack([temporal_calendar_chart, temporal_review_chart], align="start", wrap=True),
-        mo.hstack([temporal_lag_chart, _temporal_quantile_table], align="start", wrap=True),
-        temporal_publisher_chart,
+        temporal_month_chart,
+        mo.ui.tabs({
+            "Annual and seasonal coverage": mo.vstack([
+                _temporal_year_chart_named,
+                temporal_calendar_chart,
+            ]),
+            "Review dates and lag": mo.vstack([
+                temporal_review_chart,
+                temporal_lag_chart,
+                _temporal_quantile_table,
+            ]),
+            "Publisher composition": temporal_publisher_chart,
+        }),
+        mo.callout(
+            mo.md(
+                "Date eligibility and publisher composition change over time. The primary line "
+                "uses parseable, non-future claim dates; publication lag uses only complete "
+                "claim/review date pairs."
+            ),
+            kind="warn",
+            title="How to interpret the timeline",
+        ),
     ])
     temporal_section
     return temporal_claim_records, temporal_publisher_year
@@ -793,7 +862,9 @@ def render_temporal_patterns(
 @app.cell(hide_code=True)
 def explain_publisher_landscape(mo):
     mo.md("""
-    ## 5. Publisher landscape
+    ## 4. Who publishes and what gets retrieved?
+
+    ### Publisher landscape
 
     Publisher totals use one row per reviewed claim. Site hostnames are kept
     separate—even when they appear related—because merging `suara.com` with
@@ -857,7 +928,7 @@ def render_publisher_landscape(
             color=alt.Color("share_pct:Q", title="Share (%)", scale=alt.Scale(scheme="teals")),
             tooltip=["publisher_site:N", "records:Q", alt.Tooltip("share_pct:Q", format=".2f"), "distinct_urls:Q"],
         )
-        .properties(width=520, height=300, title="Reviewed claims by publisher site")
+        .properties(width="container", height=300, title="Reviewed claims by publisher site")
     )
     publisher_year_heatmap = (
         alt.Chart(publisher_year)
@@ -868,7 +939,7 @@ def render_publisher_landscape(
             color=alt.Color("records:Q", title="Records", scale=alt.Scale(scheme="blues")),
             tooltip=["publisher_site:N", "claim_year:O", "records:Q"],
         )
-        .properties(width=660, height=300, title="Publisher × claim year")
+        .properties(width="container", height=300, title="Publisher × claim year")
     )
     publisher_share_chart = (
         alt.Chart(publisher_year_share)
@@ -879,7 +950,7 @@ def render_publisher_landscape(
             color=alt.Color("publisher_group:N", title="Publisher"),
             tooltip=["claim_year:O", "publisher_group:N", alt.Tooltip("share_pct:Q", format=".2f")],
         )
-        .properties(width=780, height=320, title="Publisher share over time (top six + Other)")
+        .properties(width="container", height=320, title="Publisher share over time (top six + Other)")
     )
     publisher_top = publisher_summary.row(0, named=True)
     publisher_top_share = publisher_top["share_pct"]
@@ -893,15 +964,18 @@ def render_publisher_landscape(
             f"coverage ({publisher_review_dates_best['review_date_complete_pct']:.2f}%). "
             "Large share shifts should be read alongside each site's coverage window."
         ),
-        mo.hstack([publisher_rank_chart, publisher_year_heatmap], align="start", wrap=True),
-        publisher_share_chart,
-        mo.ui.table(
-            publisher_summary,
-            selection=None,
-            pagination=True,
-            page_size=15,
-            show_column_summaries=False,
-        ),
+        publisher_rank_chart,
+        mo.ui.tabs({
+            "Coverage by year": publisher_year_heatmap,
+            "Publisher share over time": publisher_share_chart,
+            "Publisher metrics": mo.ui.table(
+                publisher_summary,
+                selection=None,
+                pagination=True,
+                page_size=15,
+                show_column_summaries=False,
+            ),
+        }),
     ])
     publisher_section
     return publisher_order, publisher_summary
@@ -910,7 +984,7 @@ def render_publisher_landscape(
 @app.cell(hide_code=True)
 def explain_keyword_overlap(mo):
     mo.md("""
-    ## 6. Keyword coverage and overlap
+    ### Retrieval coverage and keyword overlap
 
     Keywords are retrieval lenses, not mutually exclusive topics. A single
     reviewed claim can match up to several terms, so counts below use distinct
@@ -1014,7 +1088,7 @@ def render_keyword_overlap(
             color=alt.Color("records:Q", title="Records", scale=alt.Scale(scheme="viridis"), legend=None),
             tooltip=["keyword:N", "records:Q", alt.Tooltip("corpus_coverage_pct:Q", format=".2f"), "first_claim_date:T", "last_claim_date:T"],
         )
-        .properties(width=650, height=alt.Step(14), title="Coverage of all configured keywords")
+        .properties(width="container", height=alt.Step(14), title="Coverage of all configured keywords")
     )
     keyword_jaccard_chart = (
         alt.Chart(keyword_jaccard)
@@ -1025,7 +1099,7 @@ def render_keyword_overlap(
             color=alt.Color("jaccard:Q", title="Jaccard", scale=alt.Scale(scheme="viridis", domain=[0, 1])),
             tooltip=["keyword_a:N", "keyword_b:N", "shared_records:Q", "union_records:Q", alt.Tooltip("jaccard:Q", format=".3f")],
         )
-        .properties(width=620, height=620, title="Top-25 keyword co-occurrence (Jaccard)")
+        .properties(width="container", height=620, title="Top-25 keyword co-occurrence (Jaccard)")
     )
     keyword_year_chart = (
         alt.Chart(keyword_year_top)
@@ -1036,7 +1110,7 @@ def render_keyword_overlap(
             color=alt.Color("within_keyword_pct:Q", title="Within keyword (%)", scale=alt.Scale(scheme="blues")),
             tooltip=["keyword:N", "claim_year:O", "records:Q", alt.Tooltip("within_keyword_pct:Q", format=".2f")],
         )
-        .properties(width=720, height=440, title="When each top keyword's dated records occur")
+        .properties(width="container", height=440, title="When each top keyword's dated records occur")
     )
     keyword_multi_record_count = review_frame.filter(pl.col("keyword_count") > 1).height
     keyword_multi_record_pct = 100 * keyword_multi_record_count / review_frame.height
@@ -1051,10 +1125,25 @@ def render_keyword_overlap(
             f"`{keyword_top_pair['keyword_a']}` ↔ `{keyword_top_pair['keyword_b']}` "
             f"(**{keyword_top_pair['jaccard']:.3f}**, {keyword_top_pair['shared_records']:,} shared records)."
         ),
-        mo.hstack([quality_overlap_chart, keyword_year_chart], align="start", wrap=True),
-        mo.hstack([keyword_bar_chart, keyword_jaccard_chart], align="start", wrap=True),
-        mo.md("### Full keyword metrics"),
-        mo.ui.table(keyword_metrics, selection=None, pagination=True, page_size=25, show_column_summaries=False),
+        keyword_bar_chart,
+        mo.ui.tabs({
+            "Overlap distribution": quality_overlap_chart,
+            "Dated coverage": keyword_year_chart,
+            "Pairwise Jaccard": mo.vstack([
+                mo.md(
+                    "This is retrieval overlap, not a social network. See the separate network "
+                    "report for graph topology and temporal edge analysis."
+                ),
+                keyword_jaccard_chart,
+            ]),
+            "Full keyword metrics": mo.ui.table(
+                keyword_metrics,
+                selection=None,
+                pagination=True,
+                page_size=25,
+                show_column_summaries=False,
+            ),
+        }),
     ])
     keyword_section
     return (keyword_multi_record_pct,)
@@ -1063,7 +1152,7 @@ def render_keyword_overlap(
 @app.cell(hide_code=True)
 def explain_ratings_and_claimants(mo):
     mo.md("""
-    ## 7. Ratings and claimants
+    ### Ratings and claimants
 
     Rating labels are publisher-authored taxonomies. Only case and repeated
     whitespace are normalized; labels are not mapped into invented universal
@@ -1139,7 +1228,7 @@ def render_ratings_and_claimants(
             y=alt.Y("rating_normalized:N", title=None, sort="-x"),
             tooltip=["rating_normalized:N", "records:Q", alt.Tooltip("share_pct:Q", format=".2f"), "raw_variants:Q"],
         )
-        .properties(width=520, height=420, title="Most frequent normalized rating labels")
+        .properties(width="container", height=420, title="Most frequent normalized rating labels")
     )
     rating_publisher_chart = (
         alt.Chart(rating_publisher_matrix)
@@ -1150,7 +1239,7 @@ def render_ratings_and_claimants(
             color=alt.Color("publisher_share_pct:Q", title="Publisher share (%)", scale=alt.Scale(scheme="oranges")),
             tooltip=["publisher_site:N", "rating_normalized:N", "records:Q", alt.Tooltip("publisher_share_pct:Q", format=".2f")],
         )
-        .properties(width=700, height=300, title="Publisher-specific use of top rating labels")
+        .properties(width="container", height=300, title="Publisher-specific use of top rating labels")
     )
     claimant_bar_chart = (
         alt.Chart(claimant_top25)
@@ -1160,7 +1249,7 @@ def render_ratings_and_claimants(
             y=alt.Y("claimant_normalized:N", title=None, sort="-x"),
             tooltip=["claimant_normalized:N", "records:Q", "raw_variants:Q", "first_claim_date:T", "last_claim_date:T"],
         )
-        .properties(width=520, height=500, title="Top normalized claimants")
+        .properties(width="container", height=500, title="Top normalized claimants")
     )
     claimant_year_chart = (
         alt.Chart(claimant_year)
@@ -1171,7 +1260,7 @@ def render_ratings_and_claimants(
             color=alt.Color("claimant_normalized:N", title="Claimant"),
             tooltip=["claim_year:O", "claimant_normalized:N", "records:Q"],
         )
-        .properties(width=720, height=330, title="Top claimant records over time")
+        .properties(width="container", height=330, title="Top claimant records over time")
     )
     rating_top = rating_summary.row(0, named=True)
     claimant_top = claimant_summary.row(0, named=True)
@@ -1185,12 +1274,28 @@ def render_ratings_and_claimants(
             f"among present values, **{claimant_top['claimant_normalized']}** appears most often "
             f"({claimant_top['records']:,} records)."
         ),
-        mo.hstack([rating_bar_chart, rating_publisher_chart], align="start", wrap=True),
-        mo.md("### Rating variant audit"),
-        mo.ui.table(rating_summary, selection=None, pagination=True, page_size=20, wrapped_columns=["raw_labels"]),
-        mo.hstack([claimant_bar_chart, claimant_year_chart], align="start", wrap=True),
-        mo.md("### Claimant variant audit"),
-        mo.ui.table(claimant_summary, selection=None, pagination=True, page_size=25, wrapped_columns=["raw_labels"]),
+        rating_bar_chart,
+        mo.ui.tabs({
+            "Ratings by publisher": rating_publisher_chart,
+            "Rating label audit": mo.ui.table(
+                rating_summary,
+                selection=None,
+                pagination=True,
+                page_size=20,
+                wrapped_columns=["raw_labels"],
+            ),
+            "Claimants": mo.vstack([
+                claimant_bar_chart,
+                claimant_year_chart,
+            ]),
+            "Claimant label audit": mo.ui.table(
+                claimant_summary,
+                selection=None,
+                pagination=True,
+                page_size=25,
+                wrapped_columns=["raw_labels"],
+            ),
+        }),
     ])
     rating_claimant_section
     return
@@ -1199,7 +1304,9 @@ def render_ratings_and_claimants(
 @app.cell(hide_code=True)
 def explain_text_vocabulary(mo):
     mo.md("""
-    ## 8. Text shape and vocabulary
+    ## 5. Exploratory text patterns
+
+    ### Text shape and vocabulary
 
     Linguistic analysis uses one copy of each non-empty `claim_text`, so a claim
     reviewed by several publishers does not dominate the model. Original text
@@ -1322,18 +1429,31 @@ def analyze_text_vocabulary(
     text_claim_outliers = text_claim_profile.sort("characters", descending=True).head(15)
     text_title_outliers = text_title_profile.sort("characters", descending=True).head(15)
 
-    text_histogram_chart = (
-        alt.Chart(text_histograms)
-        .mark_bar(color="#4C78A8")
-        .encode(
-            x=alt.X("bin_start:Q", title="Value"),
-            x2="bin_end:Q",
-            y=alt.Y("records:Q", title="Texts"),
-            facet=alt.Facet("measure:N", columns=2, title=None),
-            tooltip=["measure:N", alt.Tooltip("bin_start:Q", format=".1f"), alt.Tooltip("bin_end:Q", format=".1f"), "records:Q"],
+    _text_histogram_labels = {
+        "claim characters": "Claim characters",
+        "claim words": "Claim words",
+        "title characters": "Review-title characters",
+        "title words": "Review-title words",
+    }
+    text_histogram_chart = mo.ui.tabs({
+        display_label: (
+            alt.Chart(text_histograms.filter(pl.col("measure") == measure))
+            .mark_bar(color="#4C78A8")
+            .encode(
+                x=alt.X("bin_start:Q", title="Value"),
+                x2="bin_end:Q",
+                y=alt.Y("records:Q", title="Texts"),
+                tooltip=[
+                    "measure:N",
+                    alt.Tooltip("bin_start:Q", format=".1f"),
+                    alt.Tooltip("bin_end:Q", format=".1f"),
+                    "records:Q",
+                ],
+            )
+            .properties(width="container", height=240, title=f"{display_label} distribution")
         )
-        .properties(width=430, height=180, title="Text-length distributions")
-    )
+        for measure, display_label in _text_histogram_labels.items()
+    })
     text_unigram_chart = (
         alt.Chart(nlp_top_unigrams)
         .mark_bar(color="#59A14F")
@@ -1342,7 +1462,7 @@ def analyze_text_vocabulary(
             y=alt.Y("term:N", title=None, sort="-x"),
             tooltip=["term:N", "documents:Q"],
         )
-        .properties(width=470, height=480, title="Top unigrams by document frequency")
+        .properties(width="container", height=480, title="Top unigrams by document frequency")
     )
     text_bigram_chart = (
         alt.Chart(nlp_top_bigrams)
@@ -1352,7 +1472,7 @@ def analyze_text_vocabulary(
             y=alt.Y("term:N", title=None, sort="-x"),
             tooltip=["term:N", "documents:Q"],
         )
-        .properties(width=470, height=480, title="Top bigrams by document frequency")
+        .properties(width="container", height=480, title="Top bigrams by document frequency")
     )
     text_top_unigram = nlp_top_unigrams.row(0, named=True)
     text_top_bigram = nlp_top_bigrams.row(0, named=True)
@@ -1366,25 +1486,36 @@ def analyze_text_vocabulary(
             f"({text_top_unigram['documents']:,} texts); the leading bigram is "
             f"**{text_top_bigram['term']}** ({text_top_bigram['documents']:,} texts)."
         ),
+        mo.md("**Text-length distributions** — select a measure to inspect its full histogram."),
         text_histogram_chart,
-        mo.ui.table(text_quantiles, selection=None, pagination=False, show_column_summaries=False),
-        mo.hstack([text_unigram_chart, text_bigram_chart], align="start", wrap=True),
-        mo.accordion({
-            "Longest claim texts": mo.ui.table(
-                text_claim_outliers, selection=None, pagination=True, page_size=15,
-                wrapped_columns=["claim_text"],
+        mo.ui.tabs({
+            "Length quantiles": mo.ui.table(
+                text_quantiles,
+                selection=None,
+                pagination=False,
+                show_column_summaries=False,
             ),
-            "Longest review titles": mo.ui.table(
-                text_title_outliers, selection=None, pagination=True, page_size=15,
-                wrapped_columns=["review_title"],
-            ),
-            "Stopword audit": mo.ui.table(
-                pl.DataFrame({"stopword": nlp_stopwords, "source": [
-                    "fact-check boilerplate" if word in NLP_BOILERPLATE_STOPWORDS else "Sastrawi"
-                    for word in nlp_stopwords
-                ]}),
-                selection=None, pagination=True, page_size=25,
-            ),
+            "Vocabulary": mo.vstack([
+                text_unigram_chart,
+                text_bigram_chart,
+            ]),
+            "Text and stopword audit": mo.accordion({
+                "Longest claim texts": mo.ui.table(
+                    text_claim_outliers, selection=None, pagination=True, page_size=15,
+                    wrapped_columns=["claim_text"],
+                ),
+                "Longest review titles": mo.ui.table(
+                    text_title_outliers, selection=None, pagination=True, page_size=15,
+                    wrapped_columns=["review_title"],
+                ),
+                "Stopword audit": mo.ui.table(
+                    pl.DataFrame({"stopword": nlp_stopwords, "source": [
+                        "fact-check boilerplate" if word in NLP_BOILERPLATE_STOPWORDS else "Sastrawi"
+                        for word in nlp_stopwords
+                    ]}),
+                    selection=None, pagination=True, page_size=25,
+                ),
+            }),
         }),
     ])
     text_section
@@ -1394,7 +1525,7 @@ def analyze_text_vocabulary(
 @app.cell(hide_code=True)
 def explain_topic_model(mo):
     mo.md("""
-    ## 9. Topic modeling
+    ### Topic modeling
 
     Non-negative matrix factorization decomposes TF-IDF into 12 recurring term
     patterns. Labels are mechanical—the top three weighted features—not human
@@ -1522,7 +1653,7 @@ def fit_topic_model(
             color=alt.Color("topic_id:O", title="Topic", scale=alt.Scale(scheme="tableau20"), legend=None),
             tooltip=["topic_id:O", "topic_label:N", "claim_texts:Q", alt.Tooltip("share_pct:Q", format=".2f"), alt.Tooltip("median_confidence:Q", format=".4f")],
         )
-        .properties(width=620, height=360, title="Dominant NMF topic prevalence")
+        .properties(width="container", height=360, title="Dominant NMF topic prevalence")
     )
     topic_year_chart = (
         alt.Chart(topic_year)
@@ -1533,7 +1664,7 @@ def fit_topic_model(
             color=alt.Color("year_share_pct:Q", title="Year share (%)", scale=alt.Scale(scheme="blues")),
             tooltip=["topic_id:O", "topic_label:N", "claim_year:O", "records:Q", alt.Tooltip("year_share_pct:Q", format=".2f")],
         )
-        .properties(width=700, height=360, title="Topic composition within each claim year")
+        .properties(width="container", height=360, title="Topic composition within each claim year")
     )
     topic_publisher_chart = (
         alt.Chart(topic_publisher)
@@ -1544,7 +1675,7 @@ def fit_topic_model(
             color=alt.Color("publisher_share_pct:Q", title="Publisher share (%)", scale=alt.Scale(scheme="purples")),
             tooltip=["publisher_site:N", "topic_id:O", "topic_label:N", "records:Q", alt.Tooltip("publisher_share_pct:Q", format=".2f")],
         )
-        .properties(width=760, height=360, title="Topic composition within each publisher")
+        .properties(width="container", height=360, title="Topic composition within each publisher")
     )
     topic_largest = topic_summary.sort("claim_texts", descending=True).row(0, named=True)
 
@@ -1555,13 +1686,21 @@ def fit_topic_model(
             f"({topic_largest['claim_texts']:,} unique texts; {topic_largest['share_pct']:.2f}%). "
             "A label names high-weight terms only; representative claims are required for interpretation."
         ),
-        mo.hstack([topic_prevalence_chart, topic_year_chart], align="start", wrap=True),
-        topic_publisher_chart,
-        mo.md("### Top terms and representative claims"),
-        mo.hstack([
-            mo.ui.table(topic_terms, selection=None, pagination=True, page_size=20),
-            mo.ui.table(topic_representatives, selection=None, pagination=True, page_size=18, wrapped_columns=["claim_text"]),
-        ], align="start", widths="equal", wrap=True),
+        topic_prevalence_chart,
+        mo.ui.tabs({
+            "Change by year": topic_year_chart,
+            "Publisher composition": topic_publisher_chart,
+            "Terms and representative claims": mo.hstack([
+                mo.ui.table(topic_terms, selection=None, pagination=True, page_size=20),
+                mo.ui.table(
+                    topic_representatives,
+                    selection=None,
+                    pagination=True,
+                    page_size=18,
+                    wrapped_columns=["claim_text"],
+                ),
+            ], align="start", widths="equal", wrap=True),
+        }),
     ])
     topic_section
     return topic_review_frame, topic_summary
@@ -1570,7 +1709,7 @@ def fit_topic_model(
 @app.cell(hide_code=True)
 def explain_semantic_clusters(mo):
     mo.md("""
-    ## 10. Latent semantic clusters
+    ### Latent semantic clusters
 
     Clustering asks a different question from NMF topics: which claim texts are
     close in a 50-dimensional latent semantic representation? The notebook
@@ -1725,7 +1864,7 @@ def fit_semantic_clusters(
             y=alt.Y("silhouette:Q", title="Silhouette score", scale=alt.Scale(zero=False)),
             tooltip=["k:O", alt.Tooltip("silhouette:Q", format=".4f")],
         )
-        .properties(width=360, height=260, title="Bounded K-means model selection")
+        .properties(width="container", height=260, title="Bounded K-means model selection")
     )
     cluster_size_chart = (
         alt.Chart(cluster_summary)
@@ -1736,7 +1875,7 @@ def fit_semantic_clusters(
             color=alt.Color("cluster_id:O", title="Cluster", scale=alt.Scale(scheme="tableau20"), legend=None),
             tooltip=["cluster_id:O", "cluster_label:N", "claim_texts:Q", alt.Tooltip("share_pct:Q", format=".2f"), alt.Tooltip("median_distance:Q", format=".4f")],
         )
-        .properties(width=590, height=330, title="Latent semantic cluster sizes")
+        .properties(width="container", height=330, title="Latent semantic cluster sizes")
     )
     cluster_scatter_chart = (
         alt.Chart(cluster_plot_frame)
@@ -1747,7 +1886,7 @@ def fit_semantic_clusters(
             color=alt.Color("cluster_id:O", title="Cluster", scale=alt.Scale(scheme="tableau20")),
             tooltip=["cluster_id:O", "cluster_label:N", "claim_text:N", alt.Tooltip("distance_to_centroid:Q", format=".4f")],
         )
-        .properties(width=820, height=520, title="2D projection of a deterministic 2,500-text sample")
+        .properties(width="container", height=520, title="2D projection of a deterministic 2,500-text sample")
     )
     cluster_selected_score = cluster_model_selection.filter(pl.col("k") == cluster_selected_k)["silhouette"][0]
     cluster_largest = cluster_summary.sort("claim_texts", descending=True).row(0, named=True)
@@ -1761,13 +1900,21 @@ def fit_semantic_clusters(
             f"The largest cluster is **{cluster_largest['cluster_label']}** "
             f"({cluster_largest['claim_texts']:,} texts)."
         ),
-        mo.hstack([cluster_selection_chart, cluster_size_chart], align="start", wrap=True),
-        cluster_scatter_chart,
-        mo.md("### Cluster terms and nearest-centroid claims"),
-        mo.hstack([
-            mo.ui.table(cluster_terms, selection=None, pagination=True, page_size=20),
-            mo.ui.table(cluster_representatives, selection=None, pagination=True, page_size=18, wrapped_columns=["claim_text"]),
-        ], align="start", widths="equal", wrap=True),
+        cluster_size_chart,
+        mo.ui.tabs({
+            "Model selection": cluster_selection_chart,
+            "Two-dimensional projection": cluster_scatter_chart,
+            "Terms and nearest-centroid claims": mo.hstack([
+                mo.ui.table(cluster_terms, selection=None, pagination=True, page_size=20),
+                mo.ui.table(
+                    cluster_representatives,
+                    selection=None,
+                    pagination=True,
+                    page_size=18,
+                    wrapped_columns=["claim_text"],
+                ),
+            ], align="start", widths="equal", wrap=True),
+        }),
     ])
     cluster_section
     return cluster_summary, cluster_text_assignments
@@ -1776,7 +1923,7 @@ def fit_semantic_clusters(
 @app.cell(hide_code=True)
 def explain_entity_candidates(mo):
     mo.md("""
-    ## 11. Entity candidates
+    ### Heuristic entity candidates
 
     This section is deliberately labeled **entity candidates**, not named-entity
     recognition. With no downloaded language model, it uses transparent rules:
@@ -1902,7 +2049,7 @@ def extract_entity_candidates(
             color=alt.Color("candidate_type:N", title="Candidate type"),
             tooltip=["candidate:N", "candidate_type:N", "document_frequency:Q", "first_year:O", "last_year:O"],
         )
-        .properties(width=570, height=560, title="Top heuristic entity candidates")
+        .properties(width="container", height=560, title="Top heuristic entity candidates")
     )
     entity_coverage_chart = (
         alt.Chart(entity_top25_dated)
@@ -1914,7 +2061,7 @@ def extract_entity_candidates(
             color=alt.Color("candidate_type:N", title="Candidate type"),
             tooltip=["candidate:N", "candidate_type:N", "document_frequency:Q", "first_year:O", "last_year:O"],
         )
-        .properties(width=570, height=500, title="Observed temporal span of top candidates")
+        .properties(width="container", height=500, title="Observed temporal span of top candidates")
     )
     entity_top_by_type = (
         entity_candidates
@@ -1933,14 +2080,17 @@ def extract_entity_candidates(
             f"Leaders by source are: **{entity_type_finding}**. These counts are useful "
             "for discovery, but capitalization artifacts and generic claimant labels require review."
         ),
-        mo.hstack([entity_frequency_chart, entity_coverage_chart], align="start", wrap=True),
-        mo.ui.table(
-            entity_candidates,
-            selection=None,
-            pagination=True,
-            page_size=25,
-            wrapped_columns=["representative_claim"],
-        ),
+        entity_frequency_chart,
+        mo.ui.tabs({
+            "Observed temporal span": entity_coverage_chart,
+            "Candidate audit": mo.ui.table(
+                entity_candidates,
+                selection=None,
+                pagination=True,
+                page_size=25,
+                wrapped_columns=["representative_claim"],
+            ),
+        }),
     ])
     entity_section
     return
@@ -1949,7 +2099,7 @@ def extract_entity_candidates(
 @app.cell(hide_code=True)
 def explain_record_explorer(mo):
     mo.md("""
-    ## 12. Record explorer and conclusions
+    ## 6. Methods, audit, records, and downloads
 
     Three **eager** downloads make the exported static HTML self-contained:
 
@@ -2022,43 +2172,6 @@ def render_record_explorer(
         )
         .sort(["claim_dt", "review_url", "claim_text"], descending=[True, False, False], nulls_last=True)
     )
-    conclusion_top3_publisher_share = float(publisher_summary.head(3)["share_pct"].sum())
-    conclusion_claim_date_complete = 100 * review_frame["claim_dt"].is_not_null().sum() / review_frame.height
-    conclusion_review_date_complete = 100 * review_frame["review_dt"].is_not_null().sum() / review_frame.height
-    conclusion_conflict_pct = 100 * record_conflict_frame.height / review_frame.height
-    conclusion_largest_cluster = cluster_summary.sort("claim_texts", descending=True).row(0, named=True)
-    conclusion_largest_topic = topic_summary.sort("claim_texts", descending=True).row(0, named=True)
-
-    conclusion_findings = mo.md(f"""
-    ### Computed takeaways
-
-    1. **Coverage is concentrated.** The three largest publisher sites contribute
-       **{conclusion_top3_publisher_share:.1f}%** of reviewed-claim records; publisher
-       shifts can therefore move the aggregate trend.
-    2. **Temporal fields are uneven.** Claim dates are available for
-       **{conclusion_claim_date_complete:.1f}%** of records, while review dates cover
-       only **{conclusion_review_date_complete:.1f}%**. Publication-lag findings apply
-       only to complete date pairs.
-    3. **Keywords overlap materially.** **{keyword_multi_record_pct:.1f}%** of
-       reviewed claims match more than one configured query, producing a
-       **{executive_overlap_factor:.2f}×** match-to-record ratio.
-    4. **Mechanical NLP summaries need examples.** The largest NMF topic is
-       **{conclusion_largest_topic['topic_label']}**
-       ({conclusion_largest_topic['share_pct']:.1f}% of unique texts); the largest
-       latent cluster is **{conclusion_largest_cluster['cluster_label']}**
-       ({conclusion_largest_cluster['share_pct']:.1f}%). These labels are top terms,
-       not human-coded themes.
-    5. **Metadata is not perfectly stable.** **{record_conflict_frame.height:,}**
-       reviewed-claim keys ({conclusion_conflict_pct:.1f}%) have a repeated-field
-       conflict, led by `{quality_top_conflict['field']}`. The source parquet is
-       preserved and diagnostics expose the affected records.
-
-    **Main limitation:** this is a query-conditioned view of Google's indexed
-    fact-check corpus, not a census of Indonesian misinformation. Missing metadata,
-    publisher coverage, retrieval vocabulary, and heuristic NLP all constrain what
-    can be concluded.
-    """)
-
     analyzed_export_frame = explorer_frame.with_columns(
         pl.col("matched_keywords").list.join("|").alias("matched_keywords")
     )
@@ -2100,7 +2213,6 @@ def render_record_explorer(
     )
 
     conclusion_section = mo.vstack([
-        conclusion_findings,
         mo.md("### Static-compatible dataset downloads"),
         mo.hstack(
             [analyzed_csv_download, raw_csv_download, source_parquet_download],

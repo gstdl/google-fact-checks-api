@@ -23,30 +23,116 @@ def introduce_report(mo):
 
 
 @app.cell(hide_code=True)
-def explain_scope(mo):
-    mo.md("""
-    ## 1. Scope, provenance, and analytical grains
+def render_network_executive_summary(
+    actor_node_metrics,
+    actor_publisher_edges,
+    actor_summary,
+    keyword_node_metrics,
+    keyword_summary,
+    mo,
+    publisher_keyword_edges,
+    window_edge_changes,
+    window_turnover,
+):
+    summary_keyword_graph = keyword_summary.row(0, named=True)
+    summary_actor_graph = actor_summary.row(0, named=True)
+    summary_top_keyword = keyword_node_metrics.sort(
+        ["betweenness", "strength"], descending=True
+    ).row(0, named=True)
+    summary_top_actor = actor_node_metrics.sort("strength", descending=True).row(0, named=True)
+    summary_persistent = window_turnover.sort("edge_jaccard", descending=True).row(0, named=True)
+    summary_largest_change = (
+        window_edge_changes
+        .with_columns(window_edge_changes["support_change"].abs().alias("absolute_support_change"))
+        .sort(["absolute_support_change", "post_support"], descending=True)
+        .row(0, named=True)
+    )
 
-    The notebook is offline: it reads the source Parquet and a committed NER cache,
-    makes no API calls, and needs no environment variables. The NER cache was
-    produced separately with the MIT-licensed Indonesian token-classification model
-    [`cahya/bert-base-indonesian-NER`](https://huggingface.co/cahya/bert-base-indonesian-NER)
-    at an immutable revision.
+    network_summary = mo.vstack([
+        mo.md("""
+        ## 1. Executive summary
 
-    Network grains are deliberately different:
+        [How to read the networks](#2-how-to-read-the-four-networks) ·
+        [Retrieval and publishers](#3-retrieval-and-publisher-structure) ·
+        [Actors and publishers](#4-actor-and-publisher-associations) ·
+        [Change over time](#5-how-network-structure-changes-over-time) ·
+        [Methods and data](#6-methods-sensitivity-audit-and-data)
+        """),
+        mo.hstack([
+            mo.stat(f"{summary_keyword_graph['nodes']:,}", label="Keyword nodes", bordered=True),
+            mo.stat(f"{summary_keyword_graph['edges']:,}", label="Keyword edges", bordered=True),
+            mo.stat(f"{summary_actor_graph['nodes']:,}", label="Eligible actors", bordered=True),
+            mo.stat(f"{summary_actor_graph['edges']:,}", label="Actor co-mentions", bordered=True),
+            mo.stat(f"{actor_publisher_edges.height:,}", label="Actor–publisher edges", bordered=True),
+        ], widths="equal", wrap=True),
+        mo.md(f"""
+        - **Retrieval bridge:** `{summary_top_keyword['label']}` has the highest exact
+          inverse-Jaccard keyword betweenness (**{summary_top_keyword['betweenness']:.4f}**).
+        - **Actor co-mention strength:** `{summary_top_actor['label']}` has the largest retained
+          strength (**{summary_top_actor['strength']:.0f}**).
+        - **Window persistence:** the `{summary_persistent['network_family']}` network has the
+          higher matched-window edge-set Jaccard (**{summary_persistent['edge_jaccard']:.3f}**).
+        - **Largest support movement:** `{summary_largest_change['source']}` ↔
+          `{summary_largest_change['target']}` changes by
+          **{summary_largest_change['support_change']:+,}** records in the
+          `{summary_largest_change['network_family']}` network.
+        """),
+        mo.callout(
+            mo.md(
+                f"The four networks contain **{publisher_keyword_edges.height:,} publisher–keyword "
+                "edges** plus keyword, actor co-mention, and actor–publisher relations. Every edge "
+                "means only retrieval overlap, textual co-mention, or indexed publisher coverage."
+            ),
+            kind="info",
+            title="What an edge means",
+        ),
+        mo.callout(
+            mo.md(
+                "Edges are not evidence of misinformation diffusion, coordination, endorsement, "
+                "influence, affiliation, audience exposure, or causality. Centrality is a position "
+                "inside this query-conditioned extract—not social importance."
+            ),
+            kind="warn",
+            title="Interpretation boundary",
+        ),
+    ])
+    network_summary
+    return
 
-    - **Reviewed claim:** one distinct `(review_url, claim_text)` record for
-      keyword and publisher relations.
-    - **Content:** one distinct `(period, claim_text)` record for actor
-      co-mentions, preventing repeated publisher reviews from inflating an edge.
-    - **Raw keyword link:** retained for support reconciliation.
-    - **NER document:** one cache row per unique non-empty claim text.
 
-    PERSON and ORGANIZATION spans are treated as **model-generated mention
-    candidates**, not verified identities. Structured claimants are retained only
-    after transparent exclusions, and aliases merge only when normalized text is
-    exactly equal.
-    """)
+@app.cell(hide_code=True)
+def explain_scope(
+    ACTOR_MIN_COMENTIONS,
+    ACTOR_MIN_TEXTS,
+    KEYWORD_MIN_SHARED,
+    mo,
+):
+    network_reading_guide = mo.vstack([
+        mo.md(f"""
+        ## 2. How to read the four networks
+
+        - **Keyword co-match:** two query keywords retrieved the same reviewed claim.
+        - **Publisher–keyword:** a publisher reviewed a claim retrieved by a keyword.
+        - **Actor co-mention:** two model-generated actor candidates appear in the same
+          unique claim text.
+        - **Actor–publisher:** a publisher reviewed a claim text that mentions an actor candidate.
+
+        The primary keyword graph requires **{KEYWORD_MIN_SHARED} shared reviewed claims**.
+        Actor nodes require **{ACTOR_MIN_TEXTS} claim texts**, and actor co-mention edges
+        require **{ACTOR_MIN_COMENTIONS} texts**. These thresholds reduce visual clutter;
+        they do not define natural boundaries.
+        """),
+        mo.accordion({
+            "Centrality, communities, and analytical grains": mo.md("""
+            Keyword betweenness uses `1 / Jaccard` as path distance. Communities use
+            deterministic greedy modularity; bridges and articulation points describe
+            graph topology. Keyword/publisher relations use distinct reviewed claims,
+            while actor relations use distinct claim texts so repeated publisher reviews
+            do not inflate co-mentions.
+            """),
+        }),
+    ])
+    network_reading_guide
     return
 
 
@@ -333,8 +419,18 @@ def setup_environment():
             .encode(
                 x=alt.X("x:Q", axis=None),
                 y=alt.Y("y:Q", axis=None),
-                size=alt.Size("strength:Q", title="Strength", scale=alt.Scale(range=[60, 1300])),
-                color=alt.Color(f"{color_field}:N", title=color_title, scale=alt.Scale(scheme="tableau20")),
+                size=alt.Size(
+                    "strength:Q",
+                    title="Strength",
+                    scale=alt.Scale(range=[60, 1300]),
+                    legend=alt.Legend(orient="bottom"),
+                ),
+                color=alt.Color(
+                    f"{color_field}:N",
+                    title=color_title,
+                    scale=alt.Scale(scheme="tableau20"),
+                    legend=alt.Legend(orient="bottom"),
+                ),
                 tooltip=[
                     "node_id:N", "label:N", "node_type:N", "support:Q",
                     "degree:Q", alt.Tooltip("strength:Q", format=".1f"),
@@ -348,7 +444,7 @@ def setup_environment():
             .mark_text(dx=8, dy=-8, align="left", fontSize=10)
             .encode(x="x:Q", y="y:Q", text="label:N")
         )
-        return (edges + nodes + labels).properties(width=850, height=610, title=title)
+        return (edges + nodes + labels).properties(width="container", height=610, title=title)
 
     def graph_summary_only(
         node_ids: list[str], edge_frame: pl.DataFrame
@@ -772,14 +868,15 @@ def render_provenance_and_grains(
             ),
         ]
     )
-    provenance_section
-    return
+    return (provenance_section,)
 
 
 @app.cell(hide_code=True)
 def explain_keyword_network(mo):
     mo.md("""
-    ## 2. Keyword co-match network
+    ## 3. Retrieval and publisher structure
+
+    ### Keyword co-match network
 
     Nodes are configured API query keywords. Two nodes connect when both queries
     retrieved the same reviewed-claim record. Edge support counts shared records;
@@ -838,7 +935,7 @@ def build_keyword_network(
     keyword_chart = network_chart(
         keyword_visual_nodes,
         keyword_visual_edges,
-        "Keyword co-match backbone (top 35 nodes; up to three strongest visible neighbors)",
+        "Keyword co-match backbone",
         "community_id",
         "Community",
     )
@@ -910,52 +1007,36 @@ def render_keyword_network(
                 title="Full graph versus visual backbone",
             ),
             keyword_chart,
-            mo.md("### Keyword communities"),
-            mo.ui.table(
-                keyword_community_summary,
-                selection=None,
-                pagination=True,
-                page_size=20,
-                wrapped_columns=["leading_keywords"],
-                show_column_summaries=False,
-            ),
-            mo.hstack(
-                [
-                    mo.vstack(
-                        [
-                            mo.md("### Central and bridging keywords"),
-                            mo.ui.table(
-                                keyword_node_metrics.select(
-                                    "label", "support", "degree", "strength", "betweenness",
-                                    "community_id", "component_id", "is_articulation",
-                                ).head(30),
-                                selection=None,
-                                pagination=True,
-                                page_size=15,
-                                show_column_summaries=False,
-                            ),
-                        ]
-                    ),
-                    mo.vstack(
-                        [
-                            mo.md("### Strongest keyword edges"),
-                            mo.ui.table(
-                                keyword_edges.select(
-                                    "source", "target", "support", "jaccard", "is_bridge", "representative_record"
-                                ).head(40),
-                                selection=None,
-                                pagination=True,
-                                page_size=15,
-                                show_search=True,
-                                show_column_summaries=False,
-                            ),
-                        ]
-                    ),
-                ],
-                widths="equal",
-                align="start",
-                wrap=True,
-            ),
+            mo.ui.tabs({
+                "Central and bridging keywords": mo.ui.table(
+                    keyword_node_metrics.select(
+                        "label", "support", "degree", "strength", "betweenness",
+                        "community_id", "component_id", "is_articulation",
+                    ).head(30),
+                    selection=None,
+                    pagination=True,
+                    page_size=15,
+                    show_column_summaries=False,
+                ),
+                "Strongest edges": mo.ui.table(
+                    keyword_edges.select(
+                        "source", "target", "support", "jaccard", "is_bridge", "representative_record"
+                    ).head(40),
+                    selection=None,
+                    pagination=True,
+                    page_size=15,
+                    show_search=True,
+                    show_column_summaries=False,
+                ),
+                "Communities": mo.ui.table(
+                    keyword_community_summary,
+                    selection=None,
+                    pagination=True,
+                    page_size=20,
+                    wrapped_columns=["leading_keywords"],
+                    show_column_summaries=False,
+                ),
+            }),
         ]
     )
     keyword_section
@@ -965,7 +1046,7 @@ def render_keyword_network(
 @app.cell(hide_code=True)
 def explain_publisher_keyword(mo):
     mo.md("""
-    ## 3. Publisher–keyword coverage network
+    ### Publisher–keyword coverage network
 
     This bipartite network links a publisher site to a query keyword when at least
     one indexed reviewed claim from that publisher matched the keyword. The
@@ -1101,14 +1182,14 @@ def render_publisher_keyword_network(
     node_layer = alt.Chart(visual_nodes).mark_circle(stroke="white", strokeWidth=0.7).encode(
         x=alt.X("x:Q", axis=None), y=alt.Y("y:Q", axis=None),
         size=alt.Size("strength:Q", scale=alt.Scale(range=[70, 1000]), title="Link strength", legend=alt.Legend(orient="bottom")),
-        color=alt.Color("node_type:N", title="Partition"),
+        color=alt.Color("node_type:N", title="Partition", legend=alt.Legend(orient="bottom")),
         tooltip=["node_id:N", "label:N", "node_type:N", "degree:Q", "strength:Q"],
     )
     labels = alt.Chart(visual_nodes).mark_text(
         align=alt.expr("datum.x < 0.5 ? 'right' : 'left'"), dx=alt.expr("datum.x < 0.5 ? -8 : 8"), fontSize=10
     ).encode(x="x:Q", y="y:Q", text="label:N")
     bipartite_chart = (edge_layer + node_layer + labels).properties(
-        width=850, height=620, title="Publisher–keyword coverage backbone (five strongest visible edges per publisher)"
+        width="container", height=620, title="Publisher–keyword coverage backbone"
     )
     publisher_keyword_section = mo.vstack(
         [
@@ -1118,18 +1199,22 @@ def render_publisher_keyword_network(
                 f"**{publisher_keyword_edges.height} observed publisher–keyword edges**."
             ),
             bipartite_chart,
-            mo.hstack(
-                [
-                    mo.vstack([
-                        mo.md("### Publisher keyword-link concentration"),
-                        mo.ui.table(publisher_concentration, selection=None, pagination=True, page_size=12, show_column_summaries=False),
-                    ]),
-                    mo.vstack([
-                        mo.md("### Keyword publisher concentration"),
-                        mo.ui.table(keyword_concentration, selection=None, pagination=True, page_size=20, show_column_summaries=False),
-                    ]),
-                ], widths="equal", align="start", wrap=True,
-            ),
+            mo.ui.tabs({
+                "Publisher concentration": mo.ui.table(
+                    publisher_concentration,
+                    selection=None,
+                    pagination=True,
+                    page_size=12,
+                    show_column_summaries=False,
+                ),
+                "Keyword concentration": mo.ui.table(
+                    keyword_concentration,
+                    selection=None,
+                    pagination=True,
+                    page_size=20,
+                    show_column_summaries=False,
+                ),
+            }),
         ]
     )
     publisher_keyword_section
@@ -1139,7 +1224,7 @@ def render_publisher_keyword_network(
 @app.cell(hide_code=True)
 def explain_actor_quality(mo):
     mo.md("""
-    ## 4. Actor identification and exclusion audit
+    ## 4. Actor and publisher associations
 
     The actor layer combines model-generated PERSON/ORGANIZATION spans with the
     structured claimant field. The model is not manually adjudicated and exposes
@@ -1209,7 +1294,7 @@ def build_actor_networks(
     actor_chart = network_chart(
         actor_visual_nodes,
         actor_visual_edges,
-        "Actor co-mention backbone (top 45 actors; up to three strongest visible neighbors)",
+        "Actor co-mention backbone",
         "provenance_group",
         "Provenance",
     )
@@ -1393,7 +1478,7 @@ def render_actor_quality_and_networks(
     ).encode(
         x=alt.X("x:Q", axis=None), y=alt.Y("y:Q", axis=None),
         size=alt.Size("strength:Q", scale=alt.Scale(range=[60, 900]), title="Coverage strength", legend=alt.Legend(orient="bottom")),
-        color=alt.Color("node_type:N", title="Partition"),
+        color=alt.Color("node_type:N", title="Partition", legend=alt.Legend(orient="bottom")),
         tooltip=["node_id:N", "label:N", "node_type:N", "degree:Q", "strength:Q"],
     )
     actor_publisher_labels = alt.Chart(actor_publisher_visual_nodes).mark_text(
@@ -1404,9 +1489,9 @@ def render_actor_quality_and_networks(
     actor_publisher_chart = (
         actor_publisher_edge_layer + actor_publisher_node_layer + actor_publisher_labels
     ).properties(
-        width=850,
+        width="container",
         height=620,
-        title="Actor–publisher coverage backbone (two strongest visible edges per top-20 actor)",
+        title="Actor–publisher coverage backbone",
     )
 
     actor_summary_row = actor_summary.row(0, named=True)
@@ -1422,6 +1507,66 @@ def render_actor_quality_and_networks(
         )
         .sort(["total_strength", "community_id"], descending=[True, False])
     )
+    actor_details = mo.ui.tabs({
+        "Communities": mo.ui.table(
+            actor_community_summary,
+            selection=None,
+            pagination=True,
+            page_size=20,
+            wrapped_columns=["leading_actors"],
+            show_column_summaries=False,
+        ),
+        "Actor metrics": mo.ui.table(
+            actor_node_metrics.select(
+                "label", "normalized_actor", "support", "degree", "strength",
+                "betweenness", "publisher_breadth", "provenance_flags",
+                "model_entity_types", "community_id", "component_id", "is_articulation",
+            ).head(50),
+            selection=None, pagination=True, page_size=20, show_search=True,
+            wrapped_columns=["provenance_flags", "model_entity_types"],
+            show_column_summaries=False,
+        ),
+        "Strongest co-mentions": mo.ui.table(
+            actor_edges.select(
+                "source", "target", "support", "is_bridge", "representative_record"
+            ).head(60),
+            selection=None, pagination=True, page_size=20, show_search=True,
+            show_column_summaries=False,
+        ),
+    })
+    actor_audit_section = mo.vstack([
+        mo.md(
+            f"Claimant is missing for **{review_frame['claimant'].null_count():,} of "
+            f"{review_frame.height:,} reviewed claims**. Exclusions are retained rather "
+            "than silently dropped."
+        ),
+        mo.ui.tabs({
+            "Structured claimant exclusions": mo.ui.table(
+                exclusion_summary,
+                selection=None,
+                pagination=True,
+                page_size=25,
+                show_search=True,
+                show_column_summaries=False,
+            ),
+            "NER label summary": mo.ui.table(
+                ner_label_summary,
+                selection=None,
+                pagination=True,
+                page_size=20,
+                show_column_summaries=False,
+            ),
+            "Low-score span audit": mo.ui.table(
+                ner_actor_audit,
+                selection=None,
+                pagination=True,
+                page_size=20,
+                show_search=True,
+                wrapped_columns=["claim_text"],
+                show_column_summaries=False,
+            ),
+        }),
+    ])
     actor_section = mo.vstack(
         [
             mo.hstack(
@@ -1432,25 +1577,27 @@ def render_actor_quality_and_networks(
                     mo.stat(f"{actor_publisher_edges.height:,}", label="Actor–publisher edges", bordered=True),
                 ], widths="equal", wrap=True,
             ),
+            mo.callout(
+                mo.md(
+                    "Actor labels combine model-generated PERSON/ORGANIZATION mentions with "
+                    "conservatively retained structured claimants. They are mention candidates, "
+                    "not verified identities."
+                ),
+                kind="warn",
+                title="Model-generated actor layer",
+            ),
             mo.md(
                 f"The strongest retained co-mention node is **{actor_section_top_actor['label']}** "
-                f"(support {actor_section_top_actor['support']:,}; edge strength {actor_section_top_actor['strength']:.0f}; "
-                f"publisher breadth {actor_section_top_actor['publisher_breadth']}). Actor betweenness is "
-                f"**approximate only when the graph exceeds 200 nodes**, using a deterministic "
-                f"200-node sample."
+                f"(support {actor_section_top_actor['support']:,}; edge strength "
+                f"{actor_section_top_actor['strength']:.0f}; publisher breadth "
+                f"{actor_section_top_actor['publisher_breadth']}). Betweenness is exact for graphs "
+                "up to 200 nodes and otherwise uses a deterministic 200-node approximation."
             ),
+            mo.md("### Actor co-mention network"),
             actor_chart,
-            mo.md("### Actor co-mention communities"),
-            mo.ui.table(
-                actor_community_summary,
-                selection=None,
-                pagination=True,
-                page_size=20,
-                wrapped_columns=["leading_actors"],
-                show_column_summaries=False,
-            ),
+            actor_details,
+            mo.md("### Actor–publisher coverage network"),
             actor_publisher_chart,
-            mo.md("### Strongest actor–publisher coverage edges"),
             mo.ui.table(
                 actor_publisher_edges.select("actor_id", "publisher_site", "support").head(60),
                 selection=None,
@@ -1459,76 +1606,21 @@ def render_actor_quality_and_networks(
                 show_search=True,
                 show_column_summaries=False,
             ),
-            mo.hstack(
-                [
-                    mo.vstack([
-                        mo.md("### Actor metrics"),
-                        mo.ui.table(
-                            actor_node_metrics.select(
-                                "label", "normalized_actor", "support", "degree", "strength",
-                                "betweenness", "publisher_breadth", "provenance_flags",
-                                "model_entity_types", "community_id", "component_id", "is_articulation",
-                            ).head(50),
-                            selection=None, pagination=True, page_size=20, show_search=True,
-                            wrapped_columns=["provenance_flags", "model_entity_types"],
-                            show_column_summaries=False,
-                        ),
-                    ]),
-                    mo.vstack([
-                        mo.md("### Strongest actor co-mentions"),
-                        mo.ui.table(
-                            actor_edges.select("source", "target", "support", "is_bridge", "representative_record").head(60),
-                            selection=None, pagination=True, page_size=20, show_search=True,
-                            show_column_summaries=False,
-                        ),
-                    ]),
-                ], widths="equal", align="start", wrap=True,
-            ),
-            mo.md("### Structured claimant exclusion audit"),
-            mo.md(
-                f"Claimant is missing for **{review_frame['claimant'].null_count():,} of {review_frame.height:,} "
-                "reviewed claims**. Exclusions are retained here rather than silently dropped."
-            ),
-            mo.ui.table(
-                exclusion_summary,
-                selection=None,
-                pagination=True,
-                page_size=25,
-                show_search=True,
-                show_column_summaries=False,
-            ),
-            mo.md("### NER labels and low-score span audit"),
-            mo.hstack(
-                [
-                    mo.ui.table(ner_label_summary, selection=None, pagination=True, page_size=20, show_column_summaries=False),
-                    mo.ui.table(
-                        ner_actor_audit,
-                        selection=None,
-                        pagination=True,
-                        page_size=20,
-                        show_search=True,
-                        wrapped_columns=["claim_text"],
-                        show_column_summaries=False,
-                    ),
-                ], widths="equal", align="start", wrap=True,
-            ),
         ]
     )
     actor_section
-    return exclusion_summary, ner_actor_audit, ner_label_summary
+    return actor_audit_section, exclusion_summary, ner_actor_audit, ner_label_summary
 
 
 @app.cell(hide_code=True)
 def explain_sensitivity(mo):
-    mo.md("""
-    ## 5. Threshold sensitivity
-
+    sensitivity_explanation = mo.md("""
     Network conclusions can be artifacts of pruning. Keyword graphs are recomputed
-    at shared-record support `1/2/5/10`. Actor graphs cross actor document-frequency
-    thresholds `3/5/10` with co-mention support `1/2/5`. The primary settings are
-    highlighted but no threshold is presented as a natural law.
+    at shared-record support `1/2/5/10`; actor graphs cross actor text-frequency
+    thresholds `3/5/10` with co-mention support `1/2/5`. Primary settings are
+    highlighted, but no threshold is presented as a natural law.
     """)
-    return
+    return (sensitivity_explanation,)
 
 
 @app.cell
@@ -1582,21 +1674,31 @@ def compute_sensitivity(
 
 
 @app.cell
-def render_sensitivity(actor_sensitivity, alt, keyword_sensitivity, mo):
+def render_sensitivity(
+    actor_sensitivity,
+    alt,
+    keyword_sensitivity,
+    mo,
+    sensitivity_explanation,
+):
     sensitivity_keyword_chart = alt.Chart(keyword_sensitivity).mark_line(point=True, color="#4C78A8").encode(
         x=alt.X("shared_claim_threshold:O", title="Minimum shared reviewed claims"),
         y=alt.Y("edges:Q", title="Retained edges"),
         tooltip=["shared_claim_threshold:O", "nodes:Q", "active_nodes:Q", "edges:Q", alt.Tooltip("density:Q", format=".4f"), "components:Q"],
-    ).properties(width=420, height=280, title="Keyword threshold sensitivity")
+    ).properties(width="container", height=280, title="Keyword threshold sensitivity")
     sensitivity_actor_chart = alt.Chart(actor_sensitivity).mark_line(point=True).encode(
         x=alt.X("co_mention_threshold:O", title="Minimum co-mentioning texts"),
         y=alt.Y("edges:Q", title="Retained edges"),
         color=alt.Color("actor_text_threshold:O", title="Actor text threshold"),
         tooltip=["actor_text_threshold:O", "co_mention_threshold:O", "nodes:Q", "active_nodes:Q", "edges:Q", alt.Tooltip("density:Q", format=".4f"), "components:Q"],
-    ).properties(width=520, height=280, title="Actor threshold sensitivity")
+    ).properties(width="container", height=280, title="Actor threshold sensitivity")
     sensitivity_section = mo.vstack(
         [
-            mo.hstack([sensitivity_keyword_chart, sensitivity_actor_chart], align="start", wrap=True),
+            sensitivity_explanation,
+            mo.vstack([
+                sensitivity_keyword_chart,
+                sensitivity_actor_chart,
+            ]),
             mo.hstack(
                 [
                     mo.ui.table(keyword_sensitivity, selection=None, pagination=False, show_column_summaries=False),
@@ -1605,14 +1707,13 @@ def render_sensitivity(actor_sensitivity, alt, keyword_sensitivity, mo):
             ),
         ]
     )
-    sensitivity_section
-    return
+    return (sensitivity_section,)
 
 
 @app.cell(hide_code=True)
 def explain_temporal_networks(mo):
     mo.md("""
-    ## 6. Temporal network evolution
+    ## 5. How network structure changes over time
 
     Two designs complement each other:
 
@@ -2015,13 +2116,13 @@ def render_temporal_networks(
         y=alt.Y("edges:Q", title="Thresholded edges"),
         color=alt.Color("network_family:N", title="Network"),
         tooltip=["period:O", "network_family:N", "reviewed_claims:Q", "active_nodes:Q", "edges:Q", alt.Tooltip("density:Q", format=".4f"), "components:Q"],
-    ).properties(width=680, height=320, title="Yearly thresholded network size")
+    ).properties(width="container", height=320, title="Yearly thresholded network size")
     modularity_chart = alt.Chart(yearly_metric_frame).mark_line(point=True).encode(
         x=alt.X("period:O", title="Eligible calendar year"),
         y=alt.Y("modularity:Q", title="Greedy modularity", scale=alt.Scale(zero=False)),
         color=alt.Color("network_family:N", title="Network"),
         tooltip=["period:O", "network_family:N", alt.Tooltip("modularity:Q", format=".4f"), alt.Tooltip("degree_centralization:Q", format=".4f"), "top_node:N", "top_strength:Q"],
-    ).properties(width=680, height=320, title="Yearly modularity and centralization")
+    ).properties(width="container", height=320, title="Yearly modularity and centralization")
     top_rank_changes = (
         window_rank_change
         .filter(pl.col("pre_strength") + pl.col("post_strength") > 0)
@@ -2044,70 +2145,85 @@ def render_temporal_networks(
         .group_by("network_family", maintain_order=True)
         .head(15)
     )
+    temporal_most_persistent = window_turnover.sort("edge_jaccard", descending=True).row(0, named=True)
+    temporal_largest_change = strongest_window_edge_changes.sort(
+        "absolute_support_change", descending=True
+    ).row(0, named=True)
     temporal_section = mo.vstack(
         [
             mo.md(
                 f"Eligible complete years are **{', '.join(str(year) for year in eligible_years)}**. "
                 f"The source has **{int(yearly_counts['reviewed_claims'].sum()):,}** dated reviewed claims "
-                "through 2024 before the minimum-year filter."
+                f"through 2024 before the minimum-year filter. In matched windows, the "
+                f"**{temporal_most_persistent['network_family']}** network has the higher edge-set "
+                f"Jaccard (**{temporal_most_persistent['edge_jaccard']:.3f}**), while the largest "
+                f"absolute relation-support movement is **{temporal_largest_change['source']} ↔ "
+                f"{temporal_largest_change['target']}** "
+                f"({temporal_largest_change['support_change']:+,} records)."
             ),
-            mo.hstack([edge_chart, modularity_chart], align="start", wrap=True),
-            mo.md("### Consecutive-year and matched-window edge turnover"),
-            mo.ui.table(
-                turnover_all,
-                selection=None,
-                pagination=True,
-                page_size=25,
-                show_column_summaries=False,
-            ),
-            mo.hstack(
-                [
-                    mo.vstack([
-                        mo.md("### Matched-window graph metrics"),
+            edge_chart,
+            mo.ui.tabs({
+                "Modularity and centralization": modularity_chart,
+                "Edge turnover": mo.ui.table(
+                    turnover_all,
+                    selection=None,
+                    pagination=True,
+                    page_size=25,
+                    show_column_summaries=False,
+                ),
+                "Matched-window metrics": mo.hstack(
+                    [
                         mo.ui.table(window_metrics, selection=None, pagination=False, show_column_summaries=False),
-                    ]),
-                    mo.vstack([
-                        mo.md("### Matched-window community and edge change"),
                         mo.ui.table(window_turnover, selection=None, pagination=False, show_column_summaries=False),
-                    ]),
-                ], widths="equal", align="start", wrap=True,
+                    ], widths="equal", align="start", wrap=True,
+                ),
+                "Matched-window rank changes": mo.ui.table(
+                    top_rank_changes,
+                    selection=None,
+                    pagination=True,
+                    page_size=20,
+                    show_search=True,
+                    show_column_summaries=False,
+                ),
+                "Yearly rank changes": mo.ui.table(
+                    yearly_top_rank_changes,
+                    selection=None,
+                    pagination=True,
+                    page_size=25,
+                    show_search=True,
+                    show_column_summaries=False,
+                ),
+                "Relation-support changes": mo.ui.table(
+                    strongest_window_edge_changes,
+                    selection=None,
+                    pagination=True,
+                    page_size=25,
+                    show_search=True,
+                    show_column_summaries=False,
+                ),
+                "Publisher coverage": mo.hstack(
+                    [
+                        mo.ui.table(publisher_temporal, selection=None, pagination=True, page_size=25, show_column_summaries=False),
+                        mo.ui.table(publisher_window_change, selection=None, pagination=False, show_column_summaries=False),
+                    ], widths="equal", align="start", wrap=True,
+                ),
+                "Excluded years": mo.ui.table(
+                    excluded_years,
+                    selection=None,
+                    pagination=True,
+                    page_size=20,
+                    show_column_summaries=False,
+                ),
+            }),
+            mo.callout(
+                mo.md(
+                    "Temporal coexistence is not a causal intervention. An edge appears when an "
+                    "association crosses the fixed support threshold in this extract, not when a "
+                    "new real-world relationship begins."
+                ),
+                kind="warn",
+                title="How to interpret network change",
             ),
-            mo.md("### Largest central-node rank movements between matched windows"),
-            mo.ui.table(
-                top_rank_changes,
-                selection=None,
-                pagination=True,
-                page_size=20,
-                show_search=True,
-                show_column_summaries=False,
-            ),
-            mo.md("### Largest consecutive-year rank movements"),
-            mo.ui.table(
-                yearly_top_rank_changes,
-                selection=None,
-                pagination=True,
-                page_size=25,
-                show_search=True,
-                show_column_summaries=False,
-            ),
-            mo.md("### Relations with the largest matched-window support changes"),
-            mo.ui.table(
-                strongest_window_edge_changes,
-                selection=None,
-                pagination=True,
-                page_size=25,
-                show_search=True,
-                show_column_summaries=False,
-            ),
-            mo.md("### Publisher-related temporal coverage"),
-            mo.hstack(
-                [
-                    mo.ui.table(publisher_temporal, selection=None, pagination=True, page_size=25, show_column_summaries=False),
-                    mo.ui.table(publisher_window_change, selection=None, pagination=False, show_column_summaries=False),
-                ], widths="equal", align="start", wrap=True,
-            ),
-            mo.md("### Sparse-year exclusions"),
-            mo.ui.table(excluded_years, selection=None, pagination=True, page_size=20, show_column_summaries=False),
         ]
     )
     temporal_section
@@ -2117,13 +2233,11 @@ def render_temporal_networks(
 @app.cell(hide_code=True)
 def explain_outputs_and_limits(mo):
     mo.md("""
-    ## 7. Computed findings, reusable artifacts, and limitations
+    ## 6. Methods, sensitivity, audit, and data
 
-    The findings below are generated from the current cached data. They support
-    hypothesis formation about retrieval structure, textual co-mention, and
-    indexed publisher coverage. They cannot identify the origin of a claim,
-    sharing paths, coordinated actors, audience exposure, endorsement, influence,
-    or causal effects.
+    Detailed provenance, threshold sensitivity, actor exclusions, and model audits
+    remain available below through progressive disclosure. They support reproducible
+    interpretation without competing with the primary findings above.
 
     Every download is generated eagerly for the static page. Searchable tables
     retain source claims and exclusion decisions for audit; there is no separate
@@ -2136,6 +2250,7 @@ def explain_outputs_and_limits(mo):
 def render_findings_downloads_and_explorers(
     MODEL_ID,
     MODEL_REVISION,
+    actor_audit_section,
     actor_edges,
     actor_node_metrics,
     actor_occurrence_frame,
@@ -2145,42 +2260,14 @@ def render_findings_downloads_and_explorers(
     keyword_node_metrics,
     mo,
     pl,
+    provenance_section,
     publisher_keyword_edges,
+    sensitivity_section,
     temporal_metrics_all,
     turnover_all,
     window_edge_changes,
     window_turnover,
 ):
-    top_keyword = keyword_node_metrics.sort(["betweenness", "strength"], descending=True).row(0, named=True)
-    finding_top_actor = actor_node_metrics.sort("strength", descending=True).row(0, named=True)
-    most_persistent = window_turnover.sort("edge_jaccard", descending=True).row(0, named=True)
-    largest_relation_change = (
-        window_edge_changes
-        .with_columns(pl.col("support_change").abs().alias("absolute_support_change"))
-        .sort(["absolute_support_change", "post_support"], descending=True)
-        .row(0, named=True)
-    )
-
-    computed_findings = mo.md(f"""
-    ### Computed findings
-
-    - **Retrieval bridge:** `{top_keyword['label']}` has the highest exact
-      inverse-Jaccard keyword betweenness (**{top_keyword['betweenness']:.4f}**)
-      in the primary support-thresholded graph.
-    - **Actor co-mention strength:** `{finding_top_actor['label']}` has the largest retained
-      co-mention strength (**{finding_top_actor['strength']:.0f}**) after the five-text actor
-      and two-text edge thresholds.
-    - **Window persistence:** the `{most_persistent['network_family']}` network has
-      the higher pre/post edge-set Jaccard (**{most_persistent['edge_jaccard']:.3f}**).
-    - **Largest relation-support movement:** `{largest_relation_change['source']}` ↔
-      `{largest_relation_change['target']}` changes by
-      **{largest_relation_change['support_change']:+,}** records in the
-      `{largest_relation_change['network_family']}` network.
-
-    These are network positions in a query-conditioned fact-check extract—not
-    measures of social importance, culpability, coordination, or real-world reach.
-    """)
-
     publisher_keyword_publisher_nodes = (
         publisher_keyword_edges
         .group_by("source", "publisher_site")
@@ -2333,8 +2420,12 @@ def render_findings_downloads_and_explorers(
     )
     output_section = mo.vstack(
         [
-            computed_findings,
             limitations,
+            mo.accordion({
+                "NER provenance and analytical grains": provenance_section,
+                "Threshold sensitivity": sensitivity_section,
+                "Actor identification and exclusion audit": actor_audit_section,
+            }, multiple=False),
             mo.md("### Eager research downloads"),
             downloads,
             mo.callout(
