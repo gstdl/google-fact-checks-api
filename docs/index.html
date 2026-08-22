@@ -169,17 +169,25 @@
       border-top: 1px solid var(--line);
     }
 
-    .report-grid {
+    .section-intro {
+      max-width: 720px;
+      margin: -.8rem 0 2rem;
+      color: var(--muted);
+    }
+
+    .lens-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 1.1rem;
+      margin-top: 1.5rem;
+      align-items: stretch;
     }
 
     .report {
       --accent: var(--brand);
       --soft: var(--brand-soft);
       display: flex;
-      min-height: 380px;
+      min-height: 0;
       padding: 1.6rem;
       overflow: hidden;
       border: 1px solid var(--line);
@@ -191,6 +199,10 @@
       transition: transform .18s ease, box-shadow .18s ease;
     }
 
+    .lens-grid .report {
+      min-height: 410px;
+    }
+
     .report:hover {
       transform: translateY(-3px);
       box-shadow: 0 24px 55px rgb(23 35 31 / 14%);
@@ -198,12 +210,13 @@
 
     .report.extraction { --accent: var(--amber); --soft: var(--amber-soft); }
     .report.eda { --accent: var(--blue); --soft: var(--blue-soft); }
+    .report.temporal { --accent: var(--violet); --soft: var(--violet-soft); }
     .report.network { --accent: var(--brand); --soft: var(--brand-soft); }
-    .report.ai { --accent: var(--violet); --soft: var(--violet-soft); }
 
     .report-number { color: var(--accent); }
 
-    .report h3 {
+    .report > h3,
+    .report > h4 {
       margin: 0;
       font-family: Georgia, "Times New Roman", serif;
       font-size: clamp(1.65rem, 3vw, 2.3rem);
@@ -212,26 +225,64 @@
       line-height: 1.08;
     }
 
-    .report-summary {
-      margin: .85rem 0 1rem;
+    .executive-summary {
+      margin: .9rem 0 1.35rem;
       color: var(--muted);
+      font-size: .96rem;
     }
 
-    .so-what {
-      margin: 0 0 1.35rem;
-      padding: .9rem 1rem;
-      border-radius: .8rem;
-      background: var(--soft);
-      font-size: .92rem;
+    .executive-summary strong {
+      color: var(--ink);
     }
 
-    .so-what strong {
-      display: block;
-      margin-bottom: .2rem;
-      color: var(--accent);
-      font-size: .72rem;
-      letter-spacing: .09em;
+    .analysis-section {
+      margin-top: 2.5rem;
+      padding-top: 2.5rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .application-section,
+    .method-section {
+      display: grid;
+      grid-template-columns: minmax(190px, .62fr) minmax(0, 1.8fr);
+      gap: clamp(1.5rem, 4vw, 3.5rem);
+      margin-top: 2.5rem;
+      padding-top: 2.5rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .analysis-heading span,
+    .application-heading span,
+    .method-heading span {
+      display: inline-block;
+      margin-bottom: .8rem;
+      padding: .28rem .55rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .1em;
       text-transform: uppercase;
+    }
+
+    .analysis-heading h3,
+    .application-heading h3,
+    .method-heading h3 {
+      margin: 0 0 .65rem;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.55rem, 2.7vw, 2.15rem);
+      font-weight: 500;
+      letter-spacing: -.02em;
+      line-height: 1.08;
+    }
+
+    .analysis-heading p,
+    .application-heading p,
+    .method-heading p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .92rem;
     }
 
     .actions {
@@ -314,12 +365,16 @@
       .reading-note { background: rgb(24 32 28 / 70%); }
     }
 
-    @media (max-width: 780px) {
+    @media (max-width: 980px) {
       .stats,
       .findings,
-      .report-grid { grid-template-columns: 1fr; }
+      .lens-grid,
+      .application-section,
+      .method-section { grid-template-columns: 1fr; }
+      .lens-grid .report { min-height: 0; }
+      .application-section,
+      .method-section { gap: 1.3rem; }
       .reading-note { grid-template-columns: 1fr; gap: .45rem; }
-      .report { min-height: auto; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -334,7 +389,7 @@
       <p class="eyebrow">Indonesian fact-check research</p>
       <h1>Google Fact Check Tool Data Extract</h1>
       <p class="hero-question">What becomes visible when 7,678 indexed fact checks are read as a system—not just a spreadsheet?</p>
-      <p class="hero-answer"><strong>Coverage is concentrated, retrieval themes overlap, and rule-confirmed AI-linked records appear only in the post-launch window in this extract.</strong> The reports below show the evidence, the relationships behind it, and the limits on what can be concluded.</p>
+      <p class="hero-answer"><strong>Coverage is concentrated, retrieval themes overlap, and rule-confirmed AI-linked records appear only in the post-launch window in this extract.</strong> The analyses answer three distinct questions: what is present, what changes over time, and what connects.</p>
       <div class="stats" aria-label="Dataset overview">
         <div class="stat"><strong>7,678</strong><span>reviewed-claim records</span></div>
         <div class="stat"><strong>7,602</strong><span>distinct claim texts</span></div>
@@ -344,8 +399,9 @@
     </header>
 
     <section class="why shell" aria-labelledby="why-heading">
-      <p class="section-label">The “so what?”</p>
-      <h2 class="section-heading" id="why-heading">Three findings change how this corpus should be read.</h2>
+      <p class="section-label">Selected findings · current snapshot</p>
+      <h2 class="section-heading" id="why-heading">Three signals worth investigating.</h2>
+      <p class="section-intro">Each signal maps to one analytical lens below: a static record pattern, record-level change over time, or relation-level structure.</p>
       <div class="findings">
         <article class="finding">
           <span class="finding-value">82.6%</span>
@@ -367,57 +423,87 @@
 
     <section class="reports" aria-labelledby="reports-heading">
       <div class="shell">
-        <p class="section-label">Choose your route through the evidence</p>
-        <h2 class="section-heading" id="reports-heading">Start with the question you care about.</h2>
-        <div class="report-grid">
+        <p class="section-label">Research workflow</p>
+        <h2 class="section-heading" id="reports-heading">Build the evidence. Analyze the corpus. Apply the findings.</h2>
+        <p class="section-intro">The reports now follow their dependency order. Within corpus analysis, Descriptive, Temporal, and Network remain three non-overlapping analytical lenses.</p>
+
+        <section class="method-section" aria-labelledby="method-heading">
+          <header class="method-heading">
+            <span>Step 1 · Build</span>
+            <h3 id="method-heading">Extraction &amp; provenance</h3>
+            <p>Establishes how the evidence was assembled before any interpretation begins.</p>
+          </header>
           <article class="report extraction">
-            <p class="report-number">01 · Data Extraction via Google Fact Check Tool API</p>
-            <h3>Can I trust how the corpus was assembled?</h3>
-            <p class="report-summary">Follow the Google Fact Check Tool API workflow, query vocabulary, deduplication, refresh controls, and reproducibility decisions.</p>
-            <p class="so-what"><strong>Why it matters</strong>Every later result is bounded by what Google indexed and what the 112 configured queries retrieved.</p>
+            <p class="report-number">Data Extraction via Google Fact Check Tool API</p>
+            <h4>Can the evidence pipeline be audited?</h4>
+            <p class="executive-summary">The extraction report documents the API workflow, query vocabulary, deduplication, refresh controls, and reproducibility decisions. It makes corpus construction auditable and shows why every finding is bounded by what Google indexed and what the 112 configured queries retrieved.</p>
             <div class="actions">
               <a class="button primary" href="extraction.html">Audit extraction and code →</a>
             </div>
           </article>
+        </section>
 
-          <article class="report eda">
-            <p class="report-number">02 · Exploratory Data Analysis</p>
-            <h3>Who and what shape the visible fact-check corpus?</h3>
-            <p class="report-summary">Explore time, publisher concentration, keyword overlap, ratings, claimants, language, topics, and semantic clusters.</p>
-            <p class="so-what"><strong>What stands out</strong>The three largest publisher sites contribute 82.6% of reviewed claims, so coverage composition is inseparable from trend interpretation.</p>
-            <div class="actions">
-              <a class="button primary" href="analysis.html">Explore the landscape →</a>
-              <a class="button" href="analysis-with-code.html">View with code</a>
-            </div>
-          </article>
+        <section class="analysis-section" aria-labelledby="analysis-heading">
+          <header class="analysis-heading">
+            <span>Step 2 · Analyze</span>
+            <h3 id="analysis-heading">Describe. Follow change. Map relationships.</h3>
+            <p>Every analytical output has one owner: pairwise relations belong to Network; otherwise, explicit time belongs to Temporal; everything else belongs to Descriptive.</p>
+          </header>
 
-          <article class="report network">
-            <p class="report-number">03 · Descriptive, Temporal, and Relational Network Analysis</p>
-            <h3>Which themes and actors connect otherwise separate parts of the corpus?</h3>
-            <p class="report-summary">Trace keyword communities, publisher coverage, actor co-mentions, bridges, centrality, and how those relationships change over time.</p>
-            <p class="so-what"><strong>What the network adds</strong>At support ≥5, 112 keyword nodes form 255 edges and 50 communities; <em>video</em> is the highest-betweenness retrieval bridge.</p>
-            <div class="actions">
-              <a class="button primary" href="network-analysis.html">See the relationships →</a>
-              <a class="button" href="network-analysis-with-code.html">View with code</a>
-            </div>
-          </article>
+          <div class="lens-grid">
+            <article class="report eda">
+              <p class="report-number">Descriptive analysis</p>
+              <h4>What is present?</h4>
+              <p class="executive-summary"><strong>The indexed corpus is highly concentrated:</strong> the three largest publisher sites contribute 82.6% of reviewed claims, so aggregate patterns partly reflect the publisher mix. Use this analysis to establish baseline patterns in coverage, metadata quality, ratings, claimants, language, and topics before interpreting change or relationships.</p>
+              <div class="actions">
+                <a class="button primary" href="analysis.html">Open EDA report →</a>
+                <a class="button" href="analysis-with-code.html">View with code</a>
+              </div>
+            </article>
 
-          <article class="report ai">
-            <p class="report-number">04 · Generative AI and Hoax Distribution</p>
-            <h3>Did AI-linked fact-check records appear after ChatGPT?</h3>
-            <p class="report-summary">Compare balanced pre/post-launch windows, audit the strict AI filter, and separate observed emergence from broader corpus change.</p>
-            <p class="so-what"><strong>The careful answer</strong>AI-linked records rise from 0 to 7 in matched windows, but the subset is tiny and the query-conditioned data cannot establish a generative-AI effect.</p>
+            <article class="report temporal">
+              <p class="report-number">Temporal analysis</p>
+              <h4>What changes, persists, or emerges?</h4>
+              <p class="executive-summary">The temporal sections compare dated reviewed claims across calendar periods while auditing missing dates and publisher-composition changes. They describe what changes, persists, or emerges at record level without claiming causality; the analysis begins in section 4 of the shared EDA report.</p>
+              <div class="actions">
+                <a class="button primary" href="analysis.html">Open EDA report →</a>
+                <a class="button" href="analysis-with-code.html">View with code</a>
+              </div>
+            </article>
+
+            <article class="report network">
+              <p class="report-number">Network analysis</p>
+              <h4>What connects?</h4>
+              <p class="executive-summary">At support ≥5, 112 keyword nodes form 255 edges and 50 communities, with <em>video</em> as the highest-betweenness retrieval bridge. The keyword, actor, and publisher graphs represent retrieval overlap, textual co-mention, and indexed coverage—not real-world interaction, diffusion, coordination, or causality.</p>
+              <div class="actions">
+                <a class="button primary" href="network-analysis.html">Explore network evidence →</a>
+                <a class="button" href="network-analysis-with-code.html">View with code</a>
+              </div>
+            </article>
+          </div>
+
+          <aside class="reading-note">
+            <strong>Classification rule</strong>
+            <p>If an output contains edges or pairwise relations, it belongs to Network. Otherwise, if time is explicit, it belongs to Temporal. Otherwise, it belongs to Descriptive. Temporal network evolution therefore remains inside Network.</p>
+          </aside>
+        </section>
+
+        <section class="application-section" aria-labelledby="application-heading">
+          <header class="application-heading">
+            <span>Step 3 · Apply</span>
+            <h3 id="application-heading">Applied study</h3>
+            <p>Uses the Temporal lens to answer a bounded research question; it is not a fourth analytical category.</p>
+          </header>
+          <article class="report temporal">
+            <p class="report-number">Generative AI and Hoax Distribution</p>
+            <h4>When do strict AI-linked records emerge around ChatGPT's public launch?</h4>
+            <p class="executive-summary">In balanced windows, rule-confirmed AI-linked records move from 0 of 1,649 pre-launch claims to 7 of 2,943 post-launch claims. With only seven post-launch records and no pre-launch baseline events, the result supports observed emergence—not a causal generative-AI effect.</p>
             <div class="actions">
-              <a class="button primary" href="generative-ai.html">Read the answer →</a>
+              <a class="button primary" href="generative-ai.html">Read the applied study →</a>
               <a class="button" href="generative-ai-with-code.html">View with code</a>
             </div>
           </article>
-        </div>
-
-        <aside class="reading-note">
-          <strong>Short on time?</strong>
-          <p>Read the Generative AI report for the narrowest question, the EDA for the broadest landscape, the network report for relationships, and the extraction report when you need to audit provenance.</p>
-        </aside>
+        </section>
       </div>
     </section>
   </main>
