@@ -3,48 +3,427 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore what 7,678 Indonesian fact-check records reveal about publisher concentration, overlapping themes, actor networks, and the emergence of AI-linked claims.">
   <title>Google Fact Check Tool Data Extract</title>
   <style>
-    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-    body { max-width: 760px; margin: 12vh auto; padding: 0 1.25rem; line-height: 1.5; }
-    .pages { display: grid; gap: 1rem; margin-top: 2rem; }
-    a { display: block; padding: 1.25rem; border: 1px solid #8886; border-radius: .75rem; color: inherit; text-decoration: none; }
-    a:hover { border-color: #4c78a8; }
-    strong { display: block; margin-bottom: .35rem; }
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f1ea;
+      --surface: #fffdf8;
+      --surface-strong: #ffffff;
+      --ink: #17231f;
+      --muted: #56635e;
+      --line: #d8d5ca;
+      --brand: #0f6b57;
+      --brand-dark: #084c3e;
+      --brand-soft: #dceee8;
+      --amber: #9b5d12;
+      --amber-soft: #f7e8cf;
+      --blue: #315d88;
+      --blue-soft: #dfeaf4;
+      --violet: #67518f;
+      --violet-soft: #eae4f3;
+      --shadow: 0 18px 45px rgb(23 35 31 / 9%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 0%, rgb(15 107 87 / 11%), transparent 29rem),
+        radial-gradient(circle at 92% 14%, rgb(155 93 18 / 9%), transparent 24rem),
+        var(--bg);
+      line-height: 1.6;
+    }
+
+    a { color: inherit; }
+
+    .shell {
+      width: min(1120px, calc(100% - 2.5rem));
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: clamp(4rem, 9vw, 7.5rem) 0 3.5rem;
+    }
+
+    .eyebrow,
+    .section-label,
+    .report-number {
+      margin: 0 0 .8rem;
+      color: var(--brand);
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 860px;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.8rem, 7vw, 5.9rem);
+      font-weight: 500;
+      letter-spacing: -.045em;
+      line-height: .98;
+    }
+
+    .hero-question {
+      max-width: 820px;
+      margin: 1.7rem 0 .7rem;
+      font-size: clamp(1.3rem, 2.4vw, 2rem);
+      font-weight: 650;
+      line-height: 1.3;
+    }
+
+    .hero-answer {
+      max-width: 780px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .hero-answer strong { color: var(--ink); }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .8rem;
+      margin-top: 2.4rem;
+    }
+
+    .stat {
+      padding: 1rem 1.1rem;
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      background: rgb(255 253 248 / 72%);
+      backdrop-filter: blur(8px);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 1.55rem;
+      line-height: 1.15;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: .86rem;
+    }
+
+    .why {
+      padding: 2rem 0 4rem;
+    }
+
+    .section-heading {
+      max-width: 700px;
+      margin: 0 0 1.7rem;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      font-weight: 500;
+      letter-spacing: -.025em;
+      line-height: 1.08;
+    }
+
+    .findings {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    .finding {
+      min-height: 210px;
+      padding: 1.45rem;
+      border: 1px solid var(--line);
+      border-radius: 1.15rem;
+      background: var(--surface);
+      box-shadow: 0 8px 25px rgb(23 35 31 / 5%);
+    }
+
+    .finding-value {
+      display: block;
+      margin-bottom: .75rem;
+      color: var(--brand-dark);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 2.35rem;
+      line-height: 1;
+    }
+
+    .finding h3 {
+      margin: 0 0 .55rem;
+      font-size: 1.08rem;
+      line-height: 1.25;
+    }
+
+    .finding p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .94rem;
+    }
+
+    .reports {
+      padding: 4rem 0 5rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.1rem;
+    }
+
+    .report {
+      --accent: var(--brand);
+      --soft: var(--brand-soft);
+      display: flex;
+      min-height: 380px;
+      padding: 1.6rem;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-top: 5px solid var(--accent);
+      border-radius: 1.3rem;
+      background: var(--surface-strong);
+      box-shadow: var(--shadow);
+      flex-direction: column;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .report:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 24px 55px rgb(23 35 31 / 14%);
+    }
+
+    .report.extraction { --accent: var(--amber); --soft: var(--amber-soft); }
+    .report.eda { --accent: var(--blue); --soft: var(--blue-soft); }
+    .report.network { --accent: var(--brand); --soft: var(--brand-soft); }
+    .report.ai { --accent: var(--violet); --soft: var(--violet-soft); }
+
+    .report-number { color: var(--accent); }
+
+    .report h3 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.65rem, 3vw, 2.3rem);
+      font-weight: 500;
+      letter-spacing: -.025em;
+      line-height: 1.08;
+    }
+
+    .report-summary {
+      margin: .85rem 0 1rem;
+      color: var(--muted);
+    }
+
+    .so-what {
+      margin: 0 0 1.35rem;
+      padding: .9rem 1rem;
+      border-radius: .8rem;
+      background: var(--soft);
+      font-size: .92rem;
+    }
+
+    .so-what strong {
+      display: block;
+      margin-bottom: .2rem;
+      color: var(--accent);
+      font-size: .72rem;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+
+    .actions {
+      display: flex;
+      gap: .7rem;
+      margin-top: auto;
+      flex-wrap: wrap;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 44px;
+      padding: .68rem .95rem;
+      border: 1px solid var(--accent);
+      border-radius: .7rem;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-size: .9rem;
+      font-weight: 750;
+      text-decoration: none;
+    }
+
+    .button.primary {
+      color: #fff;
+      background: var(--accent);
+    }
+
+    .button:hover { filter: brightness(.94); }
+
+    .button:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent), transparent 55%);
+      outline-offset: 3px;
+    }
+
+    .reading-note {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 2rem;
+      margin-top: 1.3rem;
+      padding: 1.4rem 1.5rem;
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      background: rgb(255 253 248 / 65%);
+    }
+
+    .reading-note strong { font-size: .9rem; }
+    .reading-note p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+    footer {
+      padding: 2rem 0 3.5rem;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: .88rem;
+    }
+
+    footer strong { color: var(--ink); }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111714;
+        --surface: #18201c;
+        --surface-strong: #1b2520;
+        --ink: #eef5f0;
+        --muted: #aebbb4;
+        --line: #334139;
+        --brand: #6cc7ad;
+        --brand-dark: #9ee1ce;
+        --brand-soft: #183e33;
+        --amber: #e6ad62;
+        --amber-soft: #412f1d;
+        --blue: #8bb8e1;
+        --blue-soft: #20364a;
+        --violet: #c0a6e8;
+        --violet-soft: #342a46;
+        --shadow: 0 18px 45px rgb(0 0 0 / 28%);
+      }
+      .button.primary { color: #111714; }
+      .stat { background: rgb(24 32 28 / 72%); }
+      .reading-note { background: rgb(24 32 28 / 70%); }
+    }
+
+    @media (max-width: 780px) {
+      .stats,
+      .findings,
+      .report-grid { grid-template-columns: 1fr; }
+      .reading-note { grid-template-columns: 1fr; gap: .45rem; }
+      .report { min-height: auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .report { transition: none; }
+      .report:hover { transform: none; }
+    }
   </style>
 </head>
 <body>
-  <h1>Google Fact Check Tool Data Extract</h1>
-  <p>Indonesian Google Fact Check Tools extraction, exploratory analysis, and relational network research.</p>
-  <div class="pages">
-    <a href="extraction.html">
-      <strong>01. Data Extraction via Google Fact Check Tool API</strong>
-      API workflow, reproducibility notes, and complete notebook code.
-    </a>
-    <a href="analysis.html">
-      <strong>02. Exploratory Data Analysis</strong>
-      Static charts, tables, record explorer, and dataset downloads. Notebook code is hidden.
-    </a>
-    <a href="analysis-with-code.html">
-      <strong>02a. Exploratory Data Analysis (with code)</strong>
-      The same analysis and outputs with the complete notebook code included.
-    </a>
-    <a href="network-analysis.html">
-      <strong>03. Descriptive, Temporal, and Relational Network Analysis</strong>
-      Reproducible keyword, publisher, actor, and temporal networks with code hidden.
-    </a>
-    <a href="network-analysis-with-code.html">
-      <strong>03a. Descriptive, Temporal, and Relational Network Analysis (with code)</strong>
-      The same research report with complete graph construction and validation code.
-    </a>
-    <a href="generative-ai.html">
-      <strong>04. Generative AI and Hoax Distribution</strong>
-      A breakpoint analysis of corpus-wide changes and rule-confirmed AI-linked claims. Notebook code is hidden.
-    </a>
-    <a href="generative-ai-with-code.html">
-      <strong>04a. Generative AI and Hoax Distribution (with code)</strong>
-      The same question-focused report with the complete notebook code included.
-    </a>
-  </div>
+  <main>
+    <header class="hero shell">
+      <p class="eyebrow">Indonesian fact-check research</p>
+      <h1>Google Fact Check Tool Data Extract</h1>
+      <p class="hero-question">What becomes visible when 7,678 indexed fact checks are read as a system—not just a spreadsheet?</p>
+      <p class="hero-answer"><strong>Coverage is concentrated, retrieval themes overlap, and rule-confirmed AI-linked records appear only in the post-launch window in this extract.</strong> The reports below show the evidence, the relationships behind it, and the limits on what can be concluded.</p>
+      <div class="stats" aria-label="Dataset overview">
+        <div class="stat"><strong>7,678</strong><span>reviewed-claim records</span></div>
+        <div class="stat"><strong>7,602</strong><span>distinct claim texts</span></div>
+        <div class="stat"><strong>112</strong><span>retrieval keywords</span></div>
+        <div class="stat"><strong>11</strong><span>indexed publisher sites</span></div>
+      </div>
+    </header>
+
+    <section class="why shell" aria-labelledby="why-heading">
+      <p class="section-label">The “so what?”</p>
+      <h2 class="section-heading" id="why-heading">Three findings change how this corpus should be read.</h2>
+      <div class="findings">
+        <article class="finding">
+          <span class="finding-value">82.6%</span>
+          <h3>Visibility is concentrated.</h3>
+          <p>The three largest publisher sites supply most reviewed claims. A shift in publisher mix can move the aggregate trend even when the underlying claim population does not.</p>
+        </article>
+        <article class="finding">
+          <span class="finding-value">1.54×</span>
+          <h3>Themes do not live in silos.</h3>
+          <p>Claims commonly match multiple retrieval lenses. In the thresholded network, <em>video</em> is the strongest bridge between keyword communities.</p>
+        </article>
+        <article class="finding">
+          <span class="finding-value">0 → 7</span>
+          <h3>AI-linked claims emerge—but remain rare.</h3>
+          <p>Rule-confirmed AI-linked records move from 0 of 1,649 pre-launch claims to 7 of 2,943 post-launch claims. That is emergence in this extract, not proof of causation.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="reports" aria-labelledby="reports-heading">
+      <div class="shell">
+        <p class="section-label">Choose your route through the evidence</p>
+        <h2 class="section-heading" id="reports-heading">Start with the question you care about.</h2>
+        <div class="report-grid">
+          <article class="report extraction">
+            <p class="report-number">01 · Data Extraction via Google Fact Check Tool API</p>
+            <h3>Can I trust how the corpus was assembled?</h3>
+            <p class="report-summary">Follow the Google Fact Check Tool API workflow, query vocabulary, deduplication, refresh controls, and reproducibility decisions.</p>
+            <p class="so-what"><strong>Why it matters</strong>Every later result is bounded by what Google indexed and what the 112 configured queries retrieved.</p>
+            <div class="actions">
+              <a class="button primary" href="extraction.html">Audit extraction and code →</a>
+            </div>
+          </article>
+
+          <article class="report eda">
+            <p class="report-number">02 · Exploratory Data Analysis</p>
+            <h3>Who and what shape the visible fact-check corpus?</h3>
+            <p class="report-summary">Explore time, publisher concentration, keyword overlap, ratings, claimants, language, topics, and semantic clusters.</p>
+            <p class="so-what"><strong>What stands out</strong>The three largest publisher sites contribute 82.6% of reviewed claims, so coverage composition is inseparable from trend interpretation.</p>
+            <div class="actions">
+              <a class="button primary" href="analysis.html">Explore the landscape →</a>
+              <a class="button" href="analysis-with-code.html">View with code</a>
+            </div>
+          </article>
+
+          <article class="report network">
+            <p class="report-number">03 · Descriptive, Temporal, and Relational Network Analysis</p>
+            <h3>Which themes and actors connect otherwise separate parts of the corpus?</h3>
+            <p class="report-summary">Trace keyword communities, publisher coverage, actor co-mentions, bridges, centrality, and how those relationships change over time.</p>
+            <p class="so-what"><strong>What the network adds</strong>At support ≥5, 112 keyword nodes form 255 edges and 50 communities; <em>video</em> is the highest-betweenness retrieval bridge.</p>
+            <div class="actions">
+              <a class="button primary" href="network-analysis.html">See the relationships →</a>
+              <a class="button" href="network-analysis-with-code.html">View with code</a>
+            </div>
+          </article>
+
+          <article class="report ai">
+            <p class="report-number">04 · Generative AI and Hoax Distribution</p>
+            <h3>Did AI-linked fact-check records appear after ChatGPT?</h3>
+            <p class="report-summary">Compare balanced pre/post-launch windows, audit the strict AI filter, and separate observed emergence from broader corpus change.</p>
+            <p class="so-what"><strong>The careful answer</strong>AI-linked records rise from 0 to 7 in matched windows, but the subset is tiny and the query-conditioned data cannot establish a generative-AI effect.</p>
+            <div class="actions">
+              <a class="button primary" href="generative-ai.html">Read the answer →</a>
+              <a class="button" href="generative-ai-with-code.html">View with code</a>
+            </div>
+          </article>
+        </div>
+
+        <aside class="reading-note">
+          <strong>Short on time?</strong>
+          <p>Read the Generative AI report for the narrowest question, the EDA for the broadest landscape, the network report for relationships, and the extraction report when you need to audit provenance.</p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell"><strong>Interpret carefully.</strong> This is a query-conditioned view of Google's indexed fact-check corpus—not a census of Indonesian misinformation. Network relationships are observed associations, not evidence of diffusion, coordination, endorsement, influence, or causality.</div>
+  </footer>
 </body>
 </html>
