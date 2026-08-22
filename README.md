@@ -4,7 +4,7 @@ Four [marimo](https://marimo.io/) notebooks for extracting and analyzing Indones
 
 - `notebooks/00_google_fact_check_tool_id.py` contains the complete extraction pipeline and API refresh control.
 - `notebooks/01_google_fact_check_exploratory_data_analysis_id.py` performs offline exploratory data analysis across time, publishers, keywords, and text.
-- `notebooks/02_google_fact_check_generative_ai_hoax_distribution_id.py` compares corpus distributions around the public launch of ChatGPT and audits rule-confirmed AI-linked claims.
+- `notebooks/02_google_fact_check_generative_ai_hoax_distribution_id.py` uses all reviewed claims with parseable dates for the primary pre/post comparison around ChatGPT's public launch, retains balanced three-year windows as a sensitivity check, and audits rule-confirmed AI-linked claims.
 - `notebooks/03_google_fact_check_relational_network_analysis_id.py` provides descriptive, temporal, and relational network analysis of keywords, publishers, and model-identified actors.
 - `data/google_fact_check_tool_id.parquet` is the source of truth shared by all reports.
 - `data/google_fact_check_ner_entities_id.parquet` is the pinned, derived NER cache used by the network report.
@@ -108,4 +108,4 @@ Open <http://localhost:8000>. Static exports do not have a Python kernel, so ext
 
 ## Interpretation note
 
-The dataset is conditioned on the configured queries, participating publishers, and Google's fact-check index. It is not a census of misinformation in Indonesia. Model-generated entities and structured claimants remain exploratory candidates, and centrality or community membership must not be interpreted as real-world importance or coordination.
+The dataset is conditioned on the configured queries, participating publishers, and Google's fact-check index. It is not a census of misinformation in Indonesia. The applied study's primary temporal comparison uses all 6,367 reviewed claims with parseable dates (2,094 pre-launch and 4,273 post-launch); the balanced three-year sensitivity uses 1,666 and 2,998, respectively. Model-generated entities and structured claimants remain exploratory candidates, and centrality or community membership must not be interpreted as real-world importance or coordination.
