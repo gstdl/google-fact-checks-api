@@ -1,13 +1,14 @@
 [project]
 name = "ddf-hoax-temporal"
 version = "0.1.0"
-description = "Add your description here"
+description = "Descriptive, temporal, and relational network analysis of Indonesian fact-check records"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "altair",
     "google-auth",
     "marimo==0.24.0",
+    "networkx>=3.4,<4",
     "numpy",
     "polars",
     "python-dotenv",
@@ -16,6 +17,22 @@ dependencies = [
     "scikit-learn",
     "urllib3",
 ]
+
+[project.optional-dependencies]
+ner = [
+    "torch>=2.6,<3",
+    "transformers>=4.48,<5",
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "ner", marker = "platform_system != 'Darwin'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.marimo.runtime]
 # The full reviewed-claim explorer exceeds marimo's 8 MB default during HTML export.
