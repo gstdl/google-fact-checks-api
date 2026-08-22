@@ -1,9 +1,10 @@
 # Google Fact Check Tools - Indonesia
 
-Two [marimo](https://marimo.io/) notebooks for extracting and analyzing Indonesian fact-check records returned by Google Fact Check Tools.
+Three [marimo](https://marimo.io/) notebooks for extracting and analyzing Indonesian fact-check records returned by Google Fact Check Tools.
 
 - `notebooks/00_google_fact_check_tool_id.py` contains the complete extraction pipeline and API refresh control.
-- `notebooks/01_google_fact_check_analysis_id.py` performs offline temporal, publisher, keyword, and NLP analysis.
+- `notebooks/01_google_fact_check_exploratory_data_analysis_id.py` performs offline exploratory data analysis across time, publishers, keywords, and text.
+- `notebooks/02_google_fact_check_generative_ai_hoax_distribution_id.py` compares corpus distributions around the public launch of ChatGPT and audits rule-confirmed AI-linked claims.
 - `data/google_fact_check_tool_id.parquet` is the source of truth shared between them.
 
 ## Prerequisites
@@ -19,10 +20,11 @@ uv sync
 
 ## Run the notebooks
 
-The analysis notebook only needs the included Parquet:
+Both analysis notebooks only need the included Parquet:
 
 ```sh
-uv run marimo run notebooks/01_google_fact_check_analysis_id.py
+uv run marimo run notebooks/01_google_fact_check_exploratory_data_analysis_id.py
+uv run marimo run notebooks/02_google_fact_check_generative_ai_hoax_distribution_id.py
 ```
 
 The extraction notebook also requires local configuration:
@@ -54,34 +56,20 @@ gcloud auth application-default login
 
 ## Build the static site
 
-All exports execute against the cached Parquet. The extraction page includes source code, while the analysis is available both with and without code.
+All exports execute against the cached Parquet. The extraction page includes source code, while both analysis reports are available with and without code.
+
+Run the build script from the repository root:
 
 ```sh
-mkdir -p site
-
-uv run marimo export html \
-  notebooks/00_google_fact_check_tool_id.py \
-  --output site/extraction.html \
-  --include-code \
-  --force
-
-uv run marimo export html \
-  notebooks/01_google_fact_check_analysis_id.py \
-  --output site/analysis.html \
-  --no-include-code \
-  --force
-
-uv run marimo export html \
-  notebooks/01_google_fact_check_analysis_id.py \
-  --output site/analysis-with-code.html \
-  --include-code \
-  --force
+./scripts/build-static-site.sh
 ```
+
+The script checks all notebooks, exports every page into a temporary staging directory, and replaces the generated files in `docs/` only after every export succeeds. It leaves the hand-maintained `docs/index.html` unchanged.
 
 Preview the generated files:
 
 ```sh
-uv run python -m http.server 8000 --directory site
+uv run python -m http.server 8000 --directory docs
 ```
 
 Open <http://localhost:8000>. Static exports do not have a Python kernel, so extraction refresh only works in a live marimo session. The analysis tables, charts, explorer, and embedded downloads work client-side.

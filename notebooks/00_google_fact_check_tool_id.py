@@ -10,7 +10,7 @@ def introduce_notebook(mo):
     # Google Fact Check Tools — data extraction
 
     Reproducible, keyword-driven extraction of Indonesian fact-checks for the
-    companion analysis notebook.
+    companion exploratory data analysis notebook.
 
     `data/google_fact_check_tool_id.parquet` is the source of truth. The notebook
     reads it on load and only calls the API when that file is missing or the
