@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Explore what 7,746 Indonesian fact-check records reveal about publisher concentration, overlapping themes, actor networks, and the emergence of AI-linked claims.">
+  <meta name="description" content="A preliminary exploratory study of 7,746 Indonesian fact-check records, examining publisher concentration, overlapping themes, actor networks, and AI-linked claims.">
   <title>Google Fact Check Tool Data Extract</title>
   <style>
     :root {
@@ -87,6 +87,17 @@
     }
 
     .hero-answer strong { color: var(--ink); }
+
+    .study-status {
+      max-width: 780px;
+      margin: 1.1rem 0 0;
+      padding-left: .85rem;
+      border-left: 3px solid var(--brand);
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .study-status strong { color: var(--ink); }
 
     .snapshot-watermark {
       display: flex;
@@ -512,10 +523,11 @@
 <body>
   <main>
     <header class="hero shell">
-      <p class="eyebrow">Indonesian fact-check research</p>
+      <p class="eyebrow">Preliminary exploratory research · Indonesian fact checks</p>
       <h1>Google Fact Check Tool Data Extract</h1>
       <p class="hero-question">What becomes visible when 7,746 indexed fact checks are read as a system—not just a spreadsheet?</p>
       <p class="hero-answer"><strong>Coverage is concentrated, retrieval themes overlap, and rule-confirmed AI-linked records appear only in the post-launch window in this extract.</strong> The analyses answer three distinct questions: what is present, what changes over time, and what connects.</p>
+      <p class="study-status"><strong>Study status: preliminary exploratory research.</strong> The findings are hypothesis-generating and do not estimate population prevalence or establish causal effects.</p>
       <aside class="snapshot-watermark" aria-label="Canonical data extraction time">
         <strong>Traced data snapshot</strong>
         <span>Canonical Parquet last extracted <time datetime="2026-08-22T14:54:52.768304Z">22 August 2026 at 14:54:52 UTC</time></span>
@@ -547,9 +559,9 @@
           <a class="finding-link" href="network-analysis.html">Explore relational evidence →</a>
         </article>
         <article class="finding">
-          <span class="finding-value">0 → 8</span>
+          <span class="finding-value">0 → 14</span>
           <h3>AI-linked claims emerge—but remain rare.</h3>
-          <p>Rule-confirmed AI-linked records move from 0 of 1,666 pre-launch claims to 8 of 2,998 post-launch claims. That is emergence in this extract, not proof of causation.</p>
+          <p>Across all parseable claim dates, rule-confirmed AI-linked records move from 0 of 2,094 pre-launch claims to 14 of 4,273 post-launch claims. The balanced-window sensitivity supports the same emergence—not causation.</p>
           <a class="finding-link" href="generative-ai.html">Read the applied study →</a>
         </article>
       </div>
@@ -617,7 +629,7 @@
           <article class="report temporal">
             <p class="report-number">Generative AI and Hoax Distribution</p>
             <h4>When do strict AI-linked records emerge around ChatGPT's public launch?</h4>
-            <p class="executive-summary">In balanced windows, rule-confirmed AI-linked records move from 0 of 1,666 pre-launch (before 30 November 2022) claims to 8 of 2,998 post-launch claims. With only 8 post-launch records and no pre-launch baseline events, the result supports observed emergence—not a causal generative-AI effect.</p>
+            <p class="executive-summary">Across the full dated history, rule-confirmed AI-linked records move from 0 of 2,094 pre-launch (before 30 November 2022) claims to 14 of 4,273 post-launch claims. These periods have unequal durations, but the balanced three-year sensitivity supports the same direction. The result shows observed emergence—not a causal generative-AI effect.</p>
             <div class="actions">
               <a class="button primary" href="generative-ai.html">Read the applied study →</a>
               <a class="button" href="generative-ai-with-code.html">View with code</a>

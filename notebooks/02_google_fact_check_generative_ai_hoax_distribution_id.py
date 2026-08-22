@@ -58,8 +58,8 @@ def render_direct_answer(
         mo.hstack([
             mo.stat(f"{direct_candidate_count:,}", label="AI/deepfake candidates", bordered=True),
             mo.stat(f"{ai_linked_frame.height:,}", label="Rule-confirmed records", bordered=True),
-            mo.stat(f"{prevalence_pre['ai_linked_claims']:,}", label="Primary pre window", bordered=True),
-            mo.stat(f"{prevalence_post['ai_linked_claims']:,}", label="Primary post window", bordered=True),
+            mo.stat(f"{prevalence_pre['ai_linked_claims']:,}", label="Primary pre period", bordered=True),
+            mo.stat(f"{prevalence_post['ai_linked_claims']:,}", label="Primary post period", bordered=True),
             mo.stat(f"{direct_dated_count:,}", label="Records with claim dates", bordered=True),
         ], widths="equal", wrap=True),
         mo.callout(
@@ -73,7 +73,7 @@ def render_direct_answer(
                 "numerator supports observed emergence, not a finite growth ratio."
             ),
             kind="info",
-            title="Observed emergence in the balanced windows",
+            title="Observed emergence across full dated history",
         ),
         mo.md(
             f"Across all unique claim texts, the largest mentioned-format movement is "
@@ -83,7 +83,7 @@ def render_direct_answer(
             f"(**{theme_rising['change_pp']:+.2f} pp**) and the strongest decline is "
             f"**{theme_declining['theme']}** (**{theme_declining['change_pp']:+.2f} pp**). "
             f"In wording, **{lexical_rising['term']}** rises most and "
-            f"**{lexical_declining['term']}** declines most. Full-history sensitivity "
+            f"**{lexical_declining['term']}** declines most. Balanced-window sensitivity "
             f"**{direct_sensitivity_label}** ({sensitivity_change_pp:+.3f} pp)."
         ),
         mo.callout(
@@ -116,17 +116,18 @@ def explain_method(mo):
     2. one `(era, claim_text)` row for content analysis, so several publishers
        reviewing the same wording do not overweight it.
 
-    The primary comparison uses balanced three-year windows around ChatGPT's
-    public launch:
+    The primary comparison uses every reviewed claim with a parseable claim date,
+    split at ChatGPT's public launch:
 
-    - **Pre:** 2019-11-30 through 2022-11-29;
-    - **Post:** 2022-11-30 through 2025-11-29.
+    - **Pre:** all dated records before 2022-11-30;
+    - **Post:** all dated records from 2022-11-30 onward.
 
-    A full-history comparison is retained as a sensitivity check. The whole
-    corpus supplies the pre/post distribution because this extract contains no
-    rule-confirmed AI-linked record in the primary pre period. AI-linked records are
-    therefore treated as an emerging post-launch subset, not as a valid two-era
-    distribution of their own.
+    Because the available pre- and post-launch histories have unequal durations,
+    balanced three-year windows are retained as a sensitivity check. The full
+    dated corpus supplies the primary pre/post distribution because this extract
+    contains no rule-confirmed AI-linked record before launch. AI-linked records
+    are therefore treated as an emerging post-launch subset, not as a valid
+    two-era distribution of their own.
     """)
     return (method_explanation,)
 
@@ -146,8 +147,8 @@ def setup_environment():
     REPO_ROOT = mo.notebook_dir().parent
     EXTRACT_PATH = REPO_ROOT / "data" / "google_fact_check_tool_id.parquet"
     BREAKPOINT = datetime(2022, 11, 30, tzinfo=timezone.utc)
-    PRIMARY_PRE_START = datetime(2019, 11, 30, tzinfo=timezone.utc)
-    PRIMARY_POST_END = datetime(2025, 11, 30, tzinfo=timezone.utc)
+    BALANCED_PRE_START = datetime(2019, 11, 30, tzinfo=timezone.utc)
+    BALANCED_POST_END = datetime(2025, 11, 30, tzinfo=timezone.utc)
 
     if not EXTRACT_PATH.exists():
         raise FileNotFoundError(
@@ -257,8 +258,8 @@ def setup_environment():
         ERA_ORDER,
         EXTRACT_PATH,
         MODALITY_ORDER,
-        PRIMARY_POST_END,
-        PRIMARY_PRE_START,
+        BALANCED_POST_END,
+        BALANCED_PRE_START,
         StopWordRemoverFactory,
         THEME_KEYWORDS,
         ai_term_dictionary,
@@ -278,9 +279,9 @@ def setup_environment():
 def build_analytical_frames(
     BREAKPOINT,
     EXTRACT_PATH,
+    BALANCED_POST_END,
+    BALANCED_PRE_START,
     MODALITY_ORDER,
-    PRIMARY_POST_END,
-    PRIMARY_PRE_START,
     classify_modality,
     classify_themes,
     find_ai_terms,
@@ -345,24 +346,24 @@ def build_analytical_frames(
         .with_columns(
             (pl.col("ai_candidate") & (pl.col("matched_ai_terms").list.len() > 0))
             .alias("is_ai_linked"),
-            pl.when(
-                (pl.col("claim_dt") >= PRIMARY_PRE_START) &
-                (pl.col("claim_dt") < BREAKPOINT)
-            )
-            .then(pl.lit("Pre"))
-            .when(
-                (pl.col("claim_dt") >= BREAKPOINT) &
-                (pl.col("claim_dt") < PRIMARY_POST_END)
-            )
-            .then(pl.lit("Post"))
-            .otherwise(pl.lit(None, dtype=pl.Utf8))
-            .alias("comparison_era"),
             pl.when(pl.col("claim_dt") < BREAKPOINT)
             .then(pl.lit("Pre"))
             .when(pl.col("claim_dt") >= BREAKPOINT)
             .then(pl.lit("Post"))
             .otherwise(pl.lit(None, dtype=pl.Utf8))
-            .alias("full_history_era"),
+            .alias("comparison_era"),
+            pl.when(
+                (pl.col("claim_dt") >= BALANCED_PRE_START) &
+                (pl.col("claim_dt") < BREAKPOINT)
+            )
+            .then(pl.lit("Pre"))
+            .when(
+                (pl.col("claim_dt") >= BREAKPOINT) &
+                (pl.col("claim_dt") < BALANCED_POST_END)
+            )
+            .then(pl.lit("Post"))
+            .otherwise(pl.lit(None, dtype=pl.Utf8))
+            .alias("balanced_window_era"),
             (
                 pl.col("claim_date").is_not_null() & pl.col("claim_dt").is_null()
             ).alias("claim_date_parse_failed"),
@@ -408,6 +409,12 @@ def build_analytical_frames(
     content_frame = pl.DataFrame(content_rows).sort(["comparison_era", "claim_text"])
 
     assert review_frame.height == review_frame.unique(record_key_columns).height
+    assert primary_frame.height == dated_frame.height
+    assert primary_frame["claim_dt"].null_count() == 0
+    assert review_frame.filter(
+        pl.col("balanced_window_era").is_not_null()
+        & (pl.col("balanced_window_era") != pl.col("comparison_era"))
+    ).height == 0
     assert ai_linked_frame.filter(~pl.col("ai_candidate")).height == 0
     assert ai_linked_frame.filter(pl.col("matched_ai_terms").list.len() == 0).height == 0
     assert set(content_frame["mentioned_modality"].unique()) <= set(MODALITY_ORDER)
@@ -450,7 +457,7 @@ def build_analytical_frames(
         {
             "date status": "parseable claim date",
             "reviewed claims": dated_frame.height,
-            "temporal treatment": "eligible for full-history comparison",
+            "temporal treatment": "primary comparison denominator",
         },
         {
             "date status": "missing claim date",
@@ -464,13 +471,17 @@ def build_analytical_frames(
         },
         {
             "date status": "inside balanced windows",
-            "reviewed claims": primary_frame.height,
-            "temporal treatment": "primary comparison denominator",
+            "reviewed claims": review_frame.filter(
+                pl.col("balanced_window_era").is_not_null()
+            ).height,
+            "temporal treatment": "balanced-window sensitivity denominator",
         },
         {
             "date status": "parseable but outside balanced windows",
-            "reviewed claims": dated_frame.height - primary_frame.height,
-            "temporal treatment": "full-history sensitivity only",
+            "reviewed claims": dated_frame.filter(
+                pl.col("balanced_window_era").is_null()
+            ).height,
+            "temporal treatment": "included in primary; excluded from sensitivity",
         },
     ])
 
@@ -546,16 +557,16 @@ def render_ai_identification(
         {"stage": "rejected candidates", "records": rejected_ai_candidates.height},
         {"stage": "rule-confirmed with parseable claim date", "records": ai_confirmed_dated},
         {"stage": "rule-confirmed without parseable claim date", "records": ai_confirmed_undated},
-        {"stage": "rule-confirmed in primary pre window", "records": ai_pre_primary_count},
-        {"stage": "rule-confirmed in primary post window", "records": ai_post_primary_count},
+        {"stage": "rule-confirmed in primary pre period", "records": ai_pre_primary_count},
+        {"stage": "rule-confirmed in primary post period", "records": ai_post_primary_count},
     ])
 
     ai_audit_section = mo.vstack([
         mo.callout(
             mo.md(
                 f"The strict filter finds **{ai_pre_primary_count} rule-confirmed AI-linked "
-                f"records before the breakpoint** and **{ai_post_primary_count} after it** "
-                "inside the balanced windows. With no pre-period AI-linked baseline, "
+                f"dated records before the breakpoint** and **{ai_post_primary_count} after it** "
+                "across the full dated history. With no pre-period AI-linked baseline, "
                 "their own content distribution cannot be compared across eras; the "
                 "corpus-wide comparison below is used instead."
             ),
@@ -614,18 +625,13 @@ def explain_prevalence(mo):
 def analyze_prevalence(
     BREAKPOINT,
     ERA_ORDER,
-    PRIMARY_POST_END,
-    PRIMARY_PRE_START,
     alt,
     dated_frame,
     mo,
     pl,
     primary_frame,
 ):
-    prevalence_timeline = dated_frame.filter(
-        (pl.col("claim_dt") >= PRIMARY_PRE_START) &
-        (pl.col("claim_dt") < PRIMARY_POST_END)
-    )
+    prevalence_timeline = dated_frame
     prevalence_monthly = (
         prevalence_timeline
         .with_columns(pl.col("claim_dt").dt.truncate("1mo").alias("month_start"))
@@ -689,7 +695,9 @@ def analyze_prevalence(
 
     sensitivity_rows = []
     for sensitivity_era in ERA_ORDER:
-        sensitivity_slice = dated_frame.filter(pl.col("full_history_era") == sensitivity_era)
+        sensitivity_slice = dated_frame.filter(
+            pl.col("balanced_window_era") == sensitivity_era
+        )
         assert sensitivity_slice.height > 0
         sensitivity_ai_count = sensitivity_slice.filter(pl.col("is_ai_linked")).height
         sensitivity_rows.append({
@@ -750,7 +758,7 @@ def analyze_prevalence(
 
     prevalence_section = mo.vstack([
         mo.md(
-            f"In the balanced windows, explicit AI-linked records move from "
+            f"Across the full dated history, explicit AI-linked records move from "
             f"**{prevalence_pre['ai_linked_claims']:,} of {prevalence_pre['all_reviewed_claims']:,} "
             f"({prevalence_pre['ai_linked_pct']:.3f}%)** before launch to "
             f"**{prevalence_post['ai_linked_claims']:,} of {prevalence_post['all_reviewed_claims']:,} "
@@ -759,20 +767,20 @@ def analyze_prevalence(
             f"ratio is **{prevalence_ratio_label}**."
         ),
         mo.md(
-            "The timeline is restricted to the balanced windows. November and Q4 2022 "
-            "are split exactly at the launch timestamp, so post-launch records are not "
-            "plotted inside a pre-launch bin."
+            "The timeline includes every parseable claim date. November and Q4 2022 are "
+            "split exactly at the launch timestamp, so post-launch records are not plotted "
+            "inside a pre-launch bin."
         ),
         prevalence_count_chart + breakpoint_rule,
         mo.ui.tabs({
             "Quarterly prevalence": prevalence_rate_chart + breakpoint_rule,
-            "Balanced-window result": mo.ui.table(
+            "Full-history result": mo.ui.table(
                 primary_prevalence,
                 selection=None,
                 pagination=False,
                 show_column_summaries=False,
             ),
-            "Full-history sensitivity": mo.ui.table(
+            "Balanced-window sensitivity": mo.ui.table(
                 sensitivity_prevalence,
                 selection=None,
                 pagination=False,
@@ -804,7 +812,7 @@ def explain_media_distribution(ai_linked_frame, mo):
     ### Mentioned media modality
 
     The classifier assigns the visible format mentioned in claim wording—not how the
-    content was produced. Shares use unique claim texts in each balanced era and sum
+    content was produced. Shares use unique claim texts in each full-history era and sum
     to 100%; Jensen–Shannon divergence describes distributional distance without
     implying statistical significance.
     """)
@@ -1342,7 +1350,7 @@ def render_answer_and_records(
             "record_id", "claim_text", "review_title", "claimant", "claim_date",
             "claim_dt", "review_date", "review_dt", "publisher_name", "publisher_site",
             "textual_rating", "review_url", "matched_keywords", "matched_ai_terms",
-            "mentioned_modality", "matched_themes", "comparison_era", "full_history_era",
+            "mentioned_modality", "matched_themes", "comparison_era", "balanced_window_era",
             "language_code",
         )
         .with_columns(
