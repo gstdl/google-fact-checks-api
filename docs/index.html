@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Explore what 7,678 Indonesian fact-check records reveal about publisher concentration, overlapping themes, actor networks, and the emergence of AI-linked claims.">
+  <meta name="description" content="Explore what 7,746 Indonesian fact-check records reveal about publisher concentration, overlapping themes, actor networks, and the emergence of AI-linked claims.">
   <title>Google Fact Check Tool Data Extract</title>
   <style>
     :root {
@@ -88,6 +88,39 @@
 
     .hero-answer strong { color: var(--ink); }
 
+    .snapshot-watermark {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: .45rem .75rem;
+      width: fit-content;
+      max-width: 100%;
+      margin-top: 1.35rem;
+      padding: .65rem .8rem;
+      border: 1px solid color-mix(in srgb, var(--brand), transparent 60%);
+      border-radius: .75rem;
+      background: color-mix(in srgb, var(--brand-soft), var(--surface) 35%);
+      color: var(--muted);
+      font-size: .82rem;
+      line-height: 1.35;
+    }
+
+    .snapshot-watermark strong,
+    .snapshot-watermark time { color: var(--ink); }
+
+    .snapshot-watermark strong {
+      color: var(--brand-dark);
+      font-size: .72rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .snapshot-watermark a {
+      color: var(--brand-dark);
+      font-weight: 750;
+      text-underline-offset: .18em;
+    }
+
     .stats {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -134,13 +167,82 @@
       gap: 1rem;
     }
 
+    .evidence-gaps {
+      padding: 0 0 4.5rem;
+    }
+
+    .gap-panel {
+      padding: clamp(1.35rem, 3vw, 2rem);
+      border: 2px solid var(--amber);
+      border-radius: 1.3rem;
+      background: color-mix(in srgb, var(--amber-soft), var(--surface) 35%);
+      box-shadow: var(--shadow);
+    }
+
+    .gap-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .gap-item {
+      padding: 1.25rem;
+      border: 1px solid color-mix(in srgb, var(--amber), transparent 55%);
+      border-radius: 1rem;
+      background: var(--surface);
+    }
+
+    .gap-item h3,
+    .future-layer h3 {
+      margin: 0 0 .55rem;
+      font-size: 1.08rem;
+      line-height: 1.3;
+    }
+
+    .gap-item p,
+    .future-layer p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .94rem;
+    }
+
+    .future-layer {
+      margin-top: 1rem;
+      padding: 1.3rem;
+      border-radius: 1rem;
+      background: var(--surface-strong);
+    }
+
+    .future-layer .section-label {
+      margin-bottom: .55rem;
+      color: var(--brand);
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .future-layer ul {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .55rem 1.4rem;
+      margin: 1rem 0 0;
+      padding-left: 1.25rem;
+      color: var(--muted);
+      font-size: .91rem;
+    }
+
+    .future-layer strong { color: var(--ink); }
+
     .finding {
-      min-height: 210px;
+      display: flex;
+      min-height: 230px;
       padding: 1.45rem;
       border: 1px solid var(--line);
       border-radius: 1.15rem;
       background: var(--surface);
       box-shadow: 0 8px 25px rgb(23 35 31 / 5%);
+      flex-direction: column;
     }
 
     .finding-value {
@@ -162,6 +264,22 @@
       margin: 0;
       color: var(--muted);
       font-size: .94rem;
+    }
+
+    .finding-link {
+      display: inline-flex;
+      margin-top: auto;
+      padding-top: 1rem;
+      align-self: flex-start;
+      color: var(--brand-dark);
+      font-size: .88rem;
+      font-weight: 750;
+      text-underline-offset: .2em;
+    }
+
+    .finding-link:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--brand), transparent 55%);
+      outline-offset: 3px;
     }
 
     .reports {
@@ -341,6 +459,12 @@
 
     footer strong { color: var(--ink); }
 
+    footer a {
+      color: var(--brand-dark);
+      font-weight: 750;
+      text-underline-offset: .18em;
+    }
+
     @media (prefers-color-scheme: dark) {
       :root {
         --bg: #111714;
@@ -368,6 +492,8 @@
     @media (max-width: 980px) {
       .stats,
       .findings,
+      .gap-grid,
+      .future-layer ul,
       .lens-grid,
       .application-section,
       .method-section { grid-template-columns: 1fr; }
@@ -388,44 +514,52 @@
     <header class="hero shell">
       <p class="eyebrow">Indonesian fact-check research</p>
       <h1>Google Fact Check Tool Data Extract</h1>
-      <p class="hero-question">What becomes visible when 7,678 indexed fact checks are read as a system—not just a spreadsheet?</p>
+      <p class="hero-question">What becomes visible when 7,746 indexed fact checks are read as a system—not just a spreadsheet?</p>
       <p class="hero-answer"><strong>Coverage is concentrated, retrieval themes overlap, and rule-confirmed AI-linked records appear only in the post-launch window in this extract.</strong> The analyses answer three distinct questions: what is present, what changes over time, and what connects.</p>
+      <aside class="snapshot-watermark" aria-label="Canonical data extraction time">
+        <strong>Traced data snapshot</strong>
+        <span>Canonical Parquet last extracted <time datetime="2026-08-22T14:54:52.768304Z">22 August 2026 at 14:54:52 UTC</time></span>
+        <a href="extraction.html">View provenance →</a>
+      </aside>
       <div class="stats" aria-label="Dataset overview">
-        <div class="stat"><strong>7,678</strong><span>reviewed-claim records</span></div>
-        <div class="stat"><strong>7,602</strong><span>distinct claim texts</span></div>
+        <div class="stat"><strong>7,746</strong><span>reviewed-claim records</span></div>
+        <div class="stat"><strong>7,673</strong><span>distinct claim texts</span></div>
         <div class="stat"><strong>112</strong><span>retrieval keywords</span></div>
         <div class="stat"><strong>11</strong><span>indexed publisher sites</span></div>
       </div>
     </header>
 
     <section class="why shell" aria-labelledby="why-heading">
-      <p class="section-label">Selected findings · current snapshot</p>
+      <p class="section-label">What we found · current snapshot</p>
       <h2 class="section-heading" id="why-heading">Three signals worth investigating.</h2>
-      <p class="section-intro">Each signal maps to descriptive, temporal, or relational analysis in the reports below.</p>
+      <p class="section-intro">Start with the signals, then follow their evidence trail from corpus construction to analysis and application.</p>
       <div class="findings">
         <article class="finding">
           <span class="finding-value">82.6%</span>
           <h3>Visibility is concentrated.</h3>
           <p>The three largest publisher sites supply most reviewed claims. A shift in publisher mix can move the aggregate trend even when the underlying claim population does not.</p>
+          <a class="finding-link" href="analysis.html">See descriptive evidence →</a>
         </article>
         <article class="finding">
-          <span class="finding-value">1.54×</span>
+          <span class="finding-value">1.53×</span>
           <h3>Themes do not live in silos.</h3>
           <p>Claims commonly match multiple retrieval lenses. In the thresholded network, <em>video</em> is the strongest bridge between keyword communities.</p>
+          <a class="finding-link" href="network-analysis.html">Explore relational evidence →</a>
         </article>
         <article class="finding">
-          <span class="finding-value">0 → 7</span>
+          <span class="finding-value">0 → 8</span>
           <h3>AI-linked claims emerge—but remain rare.</h3>
-          <p>Rule-confirmed AI-linked records move from 0 of 1,649 pre-launch claims to 7 of 2,943 post-launch claims. That is emergence in this extract, not proof of causation.</p>
+          <p>Rule-confirmed AI-linked records move from 0 of 1,666 pre-launch claims to 8 of 2,998 post-launch claims. That is emergence in this extract, not proof of causation.</p>
+          <a class="finding-link" href="generative-ai.html">Read the applied study →</a>
         </article>
       </div>
     </section>
 
     <section class="reports" aria-labelledby="reports-heading">
       <div class="shell">
-        <p class="section-label">Research workflow</p>
-        <h2 class="section-heading" id="reports-heading">Build the evidence. Analyze the corpus. Apply the findings.</h2>
-        <p class="section-intro">The reports follow their dependency order. The EDA report owns descriptive and record-level temporal analysis; the Network report owns pairwise structure and graph evolution.</p>
+        <p class="section-label">How we know</p>
+        <h2 class="section-heading" id="reports-heading">Follow the evidence from extraction to application.</h2>
+        <p class="section-intro">Begin with corpus construction, continue through descriptive and relational analysis, and end with the bounded generative-AI study.</p>
 
         <section class="method-section" aria-labelledby="method-heading">
           <header class="method-heading">
@@ -464,7 +598,7 @@
             <article class="report network">
               <p class="report-number">Network analysis</p>
               <h4>What connects?</h4>
-              <p class="executive-summary">At support ≥5, 112 keyword nodes form 255 edges and 50 communities, with <em>video</em> as the highest-betweenness retrieval bridge. The keyword, actor, and publisher graphs represent retrieval overlap, textual co-mention, and indexed coverage—not real-world interaction, diffusion, coordination, or causality.</p>
+              <p class="executive-summary">At support ≥5, 112 keyword nodes form 259 edges and 47 communities, with <em>video</em> as the highest-betweenness retrieval bridge. The keyword, actor, and publisher graphs represent retrieval overlap, textual co-mention, and indexed coverage—not real-world interaction, diffusion, coordination, or causality.</p>
               <div class="actions">
                 <a class="button primary" href="network-analysis.html">Explore network evidence →</a>
                 <a class="button" href="network-analysis-with-code.html">View with code</a>
@@ -472,10 +606,6 @@
             </article>
           </div>
 
-          <aside class="reading-note">
-            <strong>Classification rule</strong>
-            <p>If an output contains edges or pairwise relations, it belongs to Network. Otherwise, if time is explicit, it belongs to the Temporal lens inside EDA. Everything else belongs to Descriptive. Temporal graph evolution therefore remains inside Network.</p>
-          </aside>
         </section>
 
         <section class="application-section" aria-labelledby="application-heading">
@@ -487,7 +617,7 @@
           <article class="report temporal">
             <p class="report-number">Generative AI and Hoax Distribution</p>
             <h4>When do strict AI-linked records emerge around ChatGPT's public launch?</h4>
-            <p class="executive-summary">In balanced windows, rule-confirmed AI-linked records move from 0 of 1,649 pre-launch claims to 7 of 2,943 post-launch claims. With only seven post-launch records and no pre-launch baseline events, the result supports observed emergence—not a causal generative-AI effect.</p>
+            <p class="executive-summary">In balanced windows, rule-confirmed AI-linked records move from 0 of 1,666 pre-launch claims to 8 of 2,998 post-launch claims. With only eight post-launch records and no pre-launch baseline events, the result supports observed emergence—not a causal generative-AI effect.</p>
             <div class="actions">
               <a class="button primary" href="generative-ai.html">Read the applied study →</a>
               <a class="button" href="generative-ai-with-code.html">View with code</a>
@@ -496,10 +626,42 @@
         </section>
       </div>
     </section>
+
+    <section class="evidence-gaps shell" aria-labelledby="gaps-heading">
+      <div class="gap-panel">
+        <p class="section-label">Current evidence limit</p>
+        <h2 class="section-heading" id="gaps-heading">What this evidence cannot establish</h2>
+        <p class="section-intro">The reports establish what appears in this extract. They do not establish population prevalence, broad transformation, or causation.</p>
+        <div class="gap-grid">
+          <article class="gap-item">
+            <h3>Corpus and relationship boundaries</h3>
+            <p>This is a query-conditioned view of Google's indexed fact-check corpus—not a census of Indonesian misinformation. Network relationships are observed associations, not evidence of diffusion, coordination, endorsement, influence, or causality.</p>
+          </article>
+          <article class="gap-item">
+            <h3>Sparse AI-linked evidence</h3>
+            <p>The small rule-confirmed subset documents observed emergence, but it cannot support a claim of broad transformation or estimate the prevalence of AI-linked claims on social media.</p>
+          </article>
+        </div>
+        <aside class="future-layer" aria-labelledby="future-layer-heading">
+          <p class="section-label">Next steps</p>
+          <h3 id="future-layer-heading">Planned evidence extensions: referred articles and a separate social-media layer</h3>
+          <p>No article scraper or social-media collector is part of the current evidence. Future work should add these as bounded layers without changing the reviewed-claim grain:</p>
+          <ul>
+            <li><strong>Referred-article text:</strong> retrieve public fact-check pages referenced by <code>review_url</code> to analyze the claim context, review narrative, cited evidence, and explicitly linked sources.</li>
+            <li><strong>Availability audit:</strong> record the check time, HTTP status, redirects, final URL, content type, and content hash. A single failed request means unavailable at check—not taken down; label content confirmed removed only after repeated 404/410 checks plus manual verification or an explicit publisher notice.</li>
+            <li><strong>Responsible retrieval:</strong> honor robots directives, site terms, rate limits, access controls, and copyright; do not bypass authentication or paywalls.</li>
+            <li><strong>Separate populations:</strong> public posts will remain distinct from fact-checked reviewed claims and retrieved article content.</li>
+            <li><strong>Careful naming:</strong> unmatched posts will be called candidate public claims, not hoaxes.</li>
+            <li><strong>Separate denominators:</strong> article and social-post counts will not be appended to the fact-check denominator.</li>
+            <li><strong>Decisions before code:</strong> platform, access, ethics, sampling, adjudication, retention, and linkage rules must be decided before collectors are introduced.</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
   </main>
 
   <footer>
-    <div class="shell"><strong>Interpret carefully.</strong> This is a query-conditioned view of Google's indexed fact-check corpus—not a census of Indonesian misinformation. Network relationships are observed associations, not evidence of diffusion, coordination, endorsement, influence, or causality.</div>
+    <div class="shell"><strong>Google Fact Check Tool Data Extract.</strong> Built from a checksum-linked traced snapshot. <a href="extraction.html">Audit extraction and provenance →</a></div>
   </footer>
 </body>
 </html>
