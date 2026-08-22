@@ -2084,32 +2084,6 @@ def render_record_explorer(
         mimetype="application/vnd.apache.parquet",
         label=f"Download source Parquet ({len(source_parquet_bytes) / 1024:.0f} KiB)",
     )
-    static_download_manifest = pl.DataFrame([
-        {
-            "file": "google_fact_check_tool_id_analyzed.csv",
-            "format": "CSV",
-            "rows": analyzed_export_frame.height,
-            "columns": analyzed_export_frame.width,
-            "size_mib": round(len(analyzed_csv_bytes) / 1024 / 1024, 2),
-            "under_10_mib": len(analyzed_csv_bytes) < 10 * 1024 * 1024,
-        },
-        {
-            "file": "google_fact_check_tool_id_raw.csv",
-            "format": "CSV",
-            "rows": claims_frame.height,
-            "columns": claims_frame.width,
-            "size_mib": round(len(raw_csv_bytes) / 1024 / 1024, 2),
-            "under_10_mib": len(raw_csv_bytes) < 10 * 1024 * 1024,
-        },
-        {
-            "file": EXTRACT_PATH.name,
-            "format": "Parquet",
-            "rows": claims_frame.height,
-            "columns": claims_frame.width,
-            "size_mib": round(len(source_parquet_bytes) / 1024 / 1024, 2),
-            "under_10_mib": len(source_parquet_bytes) < 10 * 1024 * 1024,
-        },
-    ])
 
     record_explorer = mo.ui.table(
         explorer_frame,
@@ -2132,13 +2106,6 @@ def render_record_explorer(
             [analyzed_csv_download, raw_csv_download, source_parquet_download],
             justify="start",
             wrap=True,
-        ),
-        mo.ui.table(
-            static_download_manifest,
-            selection=None,
-            pagination=False,
-            show_column_summaries=False,
-            show_download=False,
         ),
         mo.callout(
             mo.md(

@@ -1,4 +1,4 @@
-# DDF Hoax Temporal
+# Google Fact Check Tools - Indonesia
 
 Two [marimo](https://marimo.io/) notebooks for extracting and analyzing Indonesian fact-check records returned by Google Fact Check Tools.
 
@@ -54,7 +54,7 @@ gcloud auth application-default login
 
 ## Build the static site
 
-Both exports execute against the cached Parquet. The extraction page includes source code; the analysis page hides it.
+All exports execute against the cached Parquet. The extraction page includes source code, while the analysis is available both with and without code.
 
 ```sh
 mkdir -p site
@@ -69,6 +69,12 @@ uv run marimo export html \
   notebooks/01_google_fact_check_analysis_id.py \
   --output site/analysis.html \
   --no-include-code \
+  --force
+
+uv run marimo export html \
+  notebooks/01_google_fact_check_analysis_id.py \
+  --output site/analysis-with-code.html \
+  --include-code \
   --force
 ```
 

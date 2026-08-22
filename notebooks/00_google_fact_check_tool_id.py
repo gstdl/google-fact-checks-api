@@ -505,6 +505,20 @@ def render_extract_result(
             pl.col("publisher_site").n_unique().alias("publisher_sites"),
         )
     )
+    raw_csv_bytes = extract_frame.write_csv().encode("utf-8")
+    raw_parquet_bytes = EXTRACT_PATH.read_bytes()
+    csv_download = mo.download(
+        data=raw_csv_bytes,
+        filename="google_fact_check_tool_id_raw.csv",
+        mimetype="text/csv",
+        label=f"Download raw CSV ({len(raw_csv_bytes) / 1024 / 1024:.2f} MiB)",
+    )
+    parquet_download = mo.download(
+        data=raw_parquet_bytes,
+        filename=EXTRACT_PATH.name,
+        mimetype="application/vnd.apache.parquet",
+        label=f"Download raw Parquet ({len(raw_parquet_bytes) / 1024:.0f} KiB)",
+    )
     mo.vstack([
         mo.callout(
             mo.md(
@@ -519,6 +533,12 @@ def render_extract_result(
             selection=None,
             pagination=False,
             show_column_summaries=False,
+        ),
+        mo.md("### Raw data downloads"),
+        mo.hstack(
+            [csv_download, parquet_download],
+            justify="start",
+            wrap=True,
         ),
     ])
     return
