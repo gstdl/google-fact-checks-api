@@ -115,7 +115,9 @@ def explain_analysis_setup(mo):
 
     The report reads the cached Parquet without network requests and reduces repeated
     keyword matches into explicit record, retrieval-link, and claim-text grains. The
-    detailed grain definitions are available below for audit.
+    detailed grain definitions are available below for audit. Heatmap tiles show
+    compact rounded values directly; hover tooltips retain the more precise values
+    and contextual fields.
     """)
     return
 
@@ -149,6 +151,48 @@ def setup_analysis_environment():
             f"Missing {EXTRACT_PATH}; run notebooks/00_google_fact_check_tool_id.py first."
         )
 
+    def annotate_heatmap(
+        rect_chart,
+        frame,
+        value_field: str,
+        text_format: str = ".0f",
+        text_suffix: str = "",
+        high_values_are_dark: bool = True,
+        font_size: int = 9,
+    ):
+        """Layer persistent, contrast-aware numeric labels over heatmap tiles."""
+        values = frame[value_field]
+        value_min = float(values.min())
+        value_max = float(values.max())
+        contrast_threshold = value_min + 0.55 * (value_max - value_min)
+        light_text_condition = (
+            alt.datum[value_field] >= contrast_threshold
+            if high_values_are_dark
+            else alt.datum[value_field] < contrast_threshold
+        )
+        label_chart = rect_chart
+        label_text = alt.Text(f"{value_field}:Q", format=text_format)
+        if text_suffix:
+            label_chart = label_chart.transform_calculate(
+                heatmap_label=(
+                    f"format(datum['{value_field}'], '{text_format}') + "
+                    f"'{text_suffix}'"
+                )
+            )
+            label_text = alt.Text("heatmap_label:N")
+        labels = label_chart.mark_text(
+            fontSize=font_size,
+            fontWeight=600,
+        ).encode(
+            text=label_text,
+            color=(
+                alt.when(light_text_condition)
+                .then(alt.value("white"))
+                .otherwise(alt.value("#17231f"))
+            ),
+        )
+        return rect_chart + labels
+
     return (
         EXTRACT_PATH,
         KMeans,
@@ -158,6 +202,7 @@ def setup_analysis_environment():
         TfidfVectorizer,
         TruncatedSVD,
         alt,
+        annotate_heatmap,
         collections,
         datetime,
         itertools,
@@ -422,6 +467,7 @@ def explain_data_quality(mo):
 @app.cell
 def render_data_quality(
     alt,
+    annotate_heatmap,
     claims_frame,
     keyword_link_frame,
     metadata_conflict_summary,
@@ -554,16 +600,21 @@ def render_data_quality(
         )
         .properties(width="container", height=230, title="Missingness at reviewed-claim grain")
     )
-    quality_completeness_chart = (
-        alt.Chart(quality_publisher_completeness)
-        .mark_rect()
-        .encode(
-            x=alt.X("field:N", title=None),
-            y=alt.Y("publisher_site:N", title=None, sort=quality_publisher_order),
-            color=alt.Color("complete_pct:Q", title="Complete (%)", scale=alt.Scale(scheme="blues", domain=[0, 100])),
-            tooltip=["publisher_site:N", "field:N", alt.Tooltip("complete_pct:Q", format=".2f")],
-        )
-        .properties(width="container", height=230, title="Metadata completeness by publisher")
+    quality_completeness_chart = annotate_heatmap(
+        (
+            alt.Chart(quality_publisher_completeness)
+            .mark_rect()
+            .encode(
+                x=alt.X("field:N", title=None),
+                y=alt.Y("publisher_site:N", title=None, sort=quality_publisher_order),
+                color=alt.Color("complete_pct:Q", title="Complete (%)", scale=alt.Scale(scheme="blues", domain=[0, 100])),
+                tooltip=["publisher_site:N", "field:N", alt.Tooltip("complete_pct:Q", format=".2f")],
+            )
+            .properties(width="container", height=230, title="Metadata completeness by publisher")
+        ),
+        quality_publisher_completeness,
+        "complete_pct",
+        text_suffix="%",
     )
     quality_overlap_chart = (
         alt.Chart(quality_overlap_distribution)
@@ -649,6 +700,7 @@ def explain_temporal_patterns(mo):
 @app.cell
 def render_temporal_patterns(
     alt,
+    annotate_heatmap,
     executive_publisher_counts,
     mo,
     pl,
@@ -772,16 +824,20 @@ def render_temporal_patterns(
         (_temporal_month_bars + _temporal_month_line)
         .properties(width="container", height=260, title="Monthly records and six-month rolling mean")
     )
-    temporal_calendar_chart = (
-        alt.Chart(temporal_calendar)
-        .mark_rect()
-        .encode(
-            x=alt.X("claim_month:O", title="Month"),
-            y=alt.Y("claim_year:O", title="Year"),
-            color=alt.Color("records:Q", title="Records", scale=alt.Scale(scheme="blues")),
-            tooltip=["claim_year:O", "claim_month:O", "records:Q"],
-        )
-        .properties(width="container", height=290, title="Year × month coverage")
+    temporal_calendar_chart = annotate_heatmap(
+        (
+            alt.Chart(temporal_calendar)
+            .mark_rect()
+            .encode(
+                x=alt.X("claim_month:O", title="Month"),
+                y=alt.Y("claim_year:O", title="Year"),
+                color=alt.Color("records:Q", title="Records", scale=alt.Scale(scheme="blues")),
+                tooltip=["claim_year:O", "claim_month:O", "records:Q"],
+            )
+            .properties(width="container", height=290, title="Year × month coverage")
+        ),
+        temporal_calendar,
+        "records",
     )
     temporal_review_chart = (
         alt.Chart(temporal_review_annual)
@@ -880,6 +936,7 @@ def explain_publisher_landscape(mo):
 @app.cell
 def render_publisher_landscape(
     alt,
+    annotate_heatmap,
     mo,
     pl,
     review_frame,
@@ -930,16 +987,20 @@ def render_publisher_landscape(
         )
         .properties(width="container", height=300, title="Reviewed claims by publisher site")
     )
-    publisher_year_heatmap = (
-        alt.Chart(publisher_year)
-        .mark_rect()
-        .encode(
-            x=alt.X("claim_year:O", title="Claim year"),
-            y=alt.Y("publisher_site:N", title=None, sort=publisher_order),
-            color=alt.Color("records:Q", title="Records", scale=alt.Scale(scheme="blues")),
-            tooltip=["publisher_site:N", "claim_year:O", "records:Q"],
-        )
-        .properties(width="container", height=300, title="Publisher × claim year")
+    publisher_year_heatmap = annotate_heatmap(
+        (
+            alt.Chart(publisher_year)
+            .mark_rect()
+            .encode(
+                x=alt.X("claim_year:O", title="Claim year"),
+                y=alt.Y("publisher_site:N", title=None, sort=publisher_order),
+                color=alt.Color("records:Q", title="Records", scale=alt.Scale(scheme="blues")),
+                tooltip=["publisher_site:N", "claim_year:O", "records:Q"],
+            )
+            .properties(width="container", height=300, title="Publisher × claim year")
+        ),
+        publisher_year,
+        "records",
     )
     publisher_share_chart = (
         alt.Chart(publisher_year_share)
@@ -1000,6 +1061,7 @@ def explain_keyword_overlap(mo):
 @app.cell
 def render_keyword_overlap(
     alt,
+    annotate_heatmap,
     collections,
     itertools,
     keyword_link_frame,
@@ -1090,27 +1152,39 @@ def render_keyword_overlap(
         )
         .properties(width="container", height=alt.Step(14), title="Coverage of all configured keywords")
     )
-    keyword_jaccard_chart = (
-        alt.Chart(keyword_jaccard)
-        .mark_rect()
-        .encode(
-            x=alt.X("keyword_a:N", title=None, sort=keyword_top25),
-            y=alt.Y("keyword_b:N", title=None, sort=keyword_top25),
-            color=alt.Color("jaccard:Q", title="Jaccard", scale=alt.Scale(scheme="viridis", domain=[0, 1])),
-            tooltip=["keyword_a:N", "keyword_b:N", "shared_records:Q", "union_records:Q", alt.Tooltip("jaccard:Q", format=".3f")],
-        )
-        .properties(width="container", height=620, title="Top-25 keyword co-occurrence (Jaccard)")
+    keyword_jaccard_chart = annotate_heatmap(
+        (
+            alt.Chart(keyword_jaccard)
+            .mark_rect()
+            .encode(
+                x=alt.X("keyword_a:N", title=None, sort=keyword_top25),
+                y=alt.Y("keyword_b:N", title=None, sort=keyword_top25),
+                color=alt.Color("jaccard:Q", title="Jaccard", scale=alt.Scale(scheme="viridis", domain=[0, 1])),
+                tooltip=["keyword_a:N", "keyword_b:N", "shared_records:Q", "union_records:Q", alt.Tooltip("jaccard:Q", format=".3f")],
+            )
+            .properties(width="container", height=620, title="Top-25 keyword co-occurrence (Jaccard)")
+        ),
+        keyword_jaccard,
+        "jaccard",
+        text_format=".2f",
+        high_values_are_dark=False,
+        font_size=7,
     )
-    keyword_year_chart = (
-        alt.Chart(keyword_year_top)
-        .mark_rect()
-        .encode(
-            x=alt.X("claim_year:O", title="Claim year"),
-            y=alt.Y("keyword:N", title=None, sort=keyword_trend_top),
-            color=alt.Color("within_keyword_pct:Q", title="Within keyword (%)", scale=alt.Scale(scheme="blues")),
-            tooltip=["keyword:N", "claim_year:O", "records:Q", alt.Tooltip("within_keyword_pct:Q", format=".2f")],
-        )
-        .properties(width="container", height=440, title="When each top keyword's dated records occur")
+    keyword_year_chart = annotate_heatmap(
+        (
+            alt.Chart(keyword_year_top)
+            .mark_rect()
+            .encode(
+                x=alt.X("claim_year:O", title="Claim year"),
+                y=alt.Y("keyword:N", title=None, sort=keyword_trend_top),
+                color=alt.Color("within_keyword_pct:Q", title="Within keyword (%)", scale=alt.Scale(scheme="blues")),
+                tooltip=["keyword:N", "claim_year:O", "records:Q", alt.Tooltip("within_keyword_pct:Q", format=".2f")],
+            )
+            .properties(width="container", height=440, title="When each top keyword's dated records occur")
+        ),
+        keyword_year_top,
+        "within_keyword_pct",
+        text_suffix="%",
     )
     keyword_multi_record_count = review_frame.filter(pl.col("keyword_count") > 1).height
     keyword_multi_record_pct = 100 * keyword_multi_record_count / review_frame.height
@@ -1168,6 +1242,7 @@ def explain_ratings_and_claimants(mo):
 @app.cell
 def render_ratings_and_claimants(
     alt,
+    annotate_heatmap,
     mo,
     pl,
     publisher_order,
@@ -1230,16 +1305,21 @@ def render_ratings_and_claimants(
         )
         .properties(width="container", height=420, title="Most frequent normalized rating labels")
     )
-    rating_publisher_chart = (
-        alt.Chart(rating_publisher_matrix)
-        .mark_rect()
-        .encode(
-            x=alt.X("rating_normalized:N", title="Normalized rating", sort=rating_top_labels),
-            y=alt.Y("publisher_site:N", title=None, sort=publisher_order),
-            color=alt.Color("publisher_share_pct:Q", title="Publisher share (%)", scale=alt.Scale(scheme="oranges")),
-            tooltip=["publisher_site:N", "rating_normalized:N", "records:Q", alt.Tooltip("publisher_share_pct:Q", format=".2f")],
-        )
-        .properties(width="container", height=300, title="Publisher-specific use of top rating labels")
+    rating_publisher_chart = annotate_heatmap(
+        (
+            alt.Chart(rating_publisher_matrix)
+            .mark_rect()
+            .encode(
+                x=alt.X("rating_normalized:N", title="Normalized rating", sort=rating_top_labels),
+                y=alt.Y("publisher_site:N", title=None, sort=publisher_order),
+                color=alt.Color("publisher_share_pct:Q", title="Publisher share (%)", scale=alt.Scale(scheme="oranges")),
+                tooltip=["publisher_site:N", "rating_normalized:N", "records:Q", alt.Tooltip("publisher_share_pct:Q", format=".2f")],
+            )
+            .properties(width="container", height=300, title="Publisher-specific use of top rating labels")
+        ),
+        rating_publisher_matrix,
+        "publisher_share_pct",
+        text_suffix="%",
     )
     claimant_bar_chart = (
         alt.Chart(claimant_top25)
@@ -1543,6 +1623,7 @@ def explain_topic_model(mo):
 def fit_topic_model(
     NMF,
     alt,
+    annotate_heatmap,
     claim_text_frame,
     mo,
     nlp_feature_names,
@@ -1655,27 +1736,37 @@ def fit_topic_model(
         )
         .properties(width="container", height=360, title="Dominant NMF topic prevalence")
     )
-    topic_year_chart = (
-        alt.Chart(topic_year)
-        .mark_rect()
-        .encode(
-            x=alt.X("claim_year:O", title="Claim year"),
-            y=alt.Y("topic_label:N", title=None, sort=topic_labels),
-            color=alt.Color("year_share_pct:Q", title="Year share (%)", scale=alt.Scale(scheme="blues")),
-            tooltip=["topic_id:O", "topic_label:N", "claim_year:O", "records:Q", alt.Tooltip("year_share_pct:Q", format=".2f")],
-        )
-        .properties(width="container", height=360, title="Topic composition within each claim year")
+    topic_year_chart = annotate_heatmap(
+        (
+            alt.Chart(topic_year)
+            .mark_rect()
+            .encode(
+                x=alt.X("claim_year:O", title="Claim year"),
+                y=alt.Y("topic_label:N", title=None, sort=topic_labels),
+                color=alt.Color("year_share_pct:Q", title="Year share (%)", scale=alt.Scale(scheme="blues")),
+                tooltip=["topic_id:O", "topic_label:N", "claim_year:O", "records:Q", alt.Tooltip("year_share_pct:Q", format=".2f")],
+            )
+            .properties(width="container", height=360, title="Topic composition within each claim year")
+        ),
+        topic_year,
+        "year_share_pct",
+        text_suffix="%",
     )
-    topic_publisher_chart = (
-        alt.Chart(topic_publisher)
-        .mark_rect()
-        .encode(
-            x=alt.X("publisher_site:N", title="Publisher", sort=publisher_order),
-            y=alt.Y("topic_label:N", title=None, sort=topic_labels),
-            color=alt.Color("publisher_share_pct:Q", title="Publisher share (%)", scale=alt.Scale(scheme="purples")),
-            tooltip=["publisher_site:N", "topic_id:O", "topic_label:N", "records:Q", alt.Tooltip("publisher_share_pct:Q", format=".2f")],
-        )
-        .properties(width="container", height=360, title="Topic composition within each publisher")
+    topic_publisher_chart = annotate_heatmap(
+        (
+            alt.Chart(topic_publisher)
+            .mark_rect()
+            .encode(
+                x=alt.X("publisher_site:N", title="Publisher", sort=publisher_order),
+                y=alt.Y("topic_label:N", title=None, sort=topic_labels),
+                color=alt.Color("publisher_share_pct:Q", title="Publisher share (%)", scale=alt.Scale(scheme="purples")),
+                tooltip=["publisher_site:N", "topic_id:O", "topic_label:N", "records:Q", alt.Tooltip("publisher_share_pct:Q", format=".2f")],
+            )
+            .properties(width="container", height=360, title="Topic composition within each publisher")
+        ),
+        topic_publisher,
+        "publisher_share_pct",
+        text_suffix="%",
     )
     topic_largest = topic_summary.sort("claim_texts", descending=True).row(0, named=True)
 
