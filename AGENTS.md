@@ -10,3 +10,4 @@ Atomic & Idempotent: Commit only happens when the code succeeds, otherwise rollb
 No fallbacks: Minimize creating unnecessary fallbacks (defensive scaffholding) unless the user asked to
 DUMB: Follow the D.U.M.B. (Descriptive, Uniform, Minimal, and Basic.) principle
 KISS: Code must be kept simple and stupid
+So what: Use declarative plot title, section titles that adds interpretive power for the reader. Readers should understand the key takeaways with ease

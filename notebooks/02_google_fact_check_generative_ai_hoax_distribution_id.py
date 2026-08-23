@@ -7,7 +7,7 @@ app = marimo.App(width="full")
 @app.cell(hide_code=True)
 def introduce_question(mo):
     mo.md("""
-    # How has the distribution of hoaxes transformed with generative AI?
+    # Explicit AI-linked reviewed claims emerge after ChatGPT's launch but remain rare
 
     This notebook compares the Indonesian fact-check corpus before and after the
     public launch of ChatGPT on **30 November 2022**, then profiles the small set
@@ -47,13 +47,13 @@ def render_direct_answer(
     direct_sensitivity_label = "supports the same direction" if sensitivity_agrees else "does not support the same direction"
 
     direct_answer = mo.vstack([
-        mo.md("""
-        ## 1. Direct answer
+        mo.md(f"""
+        ## 1. Explicit AI-linked records move from {prevalence_pre['ai_linked_claims']:,} to {prevalence_post['ai_linked_claims']:,} after launch
 
-        [Identification](#2-how-ai-linked-records-were-identified) ·
-        [Emergence timeline](#3-when-do-ai-linked-records-emerge) ·
-        [Corpus-wide changes](#4-what-else-changed-across-the-whole-corpus) ·
-        [Methods and records](#5-methods-limitations-records-and-download)
+        [Strict identification](#2-a-strict-two-stage-rule-retains-only-explicit-ai-linked-records) ·
+        [Observed emergence](#3-explicit-ai-linked-records-appear-only-after-launch) ·
+        [Confounded corpus shifts](#4-broader-corpus-shifts-remain-confounded-by-publisher-and-event-changes) ·
+        [Methods and records](#5-the-evidence-supports-observed-emergencenot-broad-transformation-or-causation)
         """),
         mo.hstack([
             mo.stat(f"{direct_candidate_count:,}", label="AI/deepfake candidates", bordered=True),
@@ -520,7 +520,7 @@ def build_analytical_frames(
 @app.cell(hide_code=True)
 def explain_ai_identification(mo):
     mo.md("""
-    ## 2. How AI-linked records were identified
+    ## 2. A strict two-stage rule retains only explicit AI-linked records
 
     Identification is deliberately conservative. A record must first have been
     retrieved by the configured `ai` or `deepfake` query and must then contain an
@@ -610,7 +610,7 @@ def render_ai_identification(
 @app.cell(hide_code=True)
 def explain_prevalence(mo):
     mo.md("""
-    ## 3. When do AI-linked records emerge?
+    ## 3. Explicit AI-linked records appear only after launch
 
     Counts use reviewed-claim records. The denominator for each rate is every
     reviewed claim with a claim date in the same month or era—not only AI query
@@ -739,7 +739,14 @@ def analyze_prevalence(
                 "ai_linked_claims:Q", "all_reviewed_claims:Q",
             ],
         )
-        .properties(width="container", height=250, title="Monthly AI-linked reviewed claims")
+        .properties(
+            width="container",
+            height=250,
+            title=(
+                f"All {prevalence_post['ai_linked_claims']:,} dated explicit AI-linked records "
+                "appear after launch"
+            ),
+        )
     )
     prevalence_rate_chart = (
         alt.Chart(prevalence_quarterly)
@@ -753,7 +760,14 @@ def analyze_prevalence(
                 "ai_linked_claims:Q", "all_reviewed_claims:Q",
             ],
         )
-        .properties(width="container", height=250, title="Quarterly AI-linked prevalence (launch period split)")
+        .properties(
+            width="container",
+            height=250,
+            title=(
+                f"AI-linked share moves from {prevalence_pre['ai_linked_pct']:.3f}% to "
+                f"{prevalence_post['ai_linked_pct']:.3f}% after launch"
+            ),
+        )
     )
 
     prevalence_section = mo.vstack([
@@ -809,7 +823,7 @@ def analyze_prevalence(
 @app.cell(hide_code=True)
 def explain_media_distribution(ai_linked_frame, mo):
     media_explanation = mo.md("""
-    ### Mentioned media modality
+    ### Mentioned format shifts describe claim wording, not content production
 
     The classifier assigns the visible format mentioned in claim wording—not how the
     content was produced. Shares use unique claim texts in each full-history era and sum
@@ -817,7 +831,7 @@ def explain_media_distribution(ai_linked_frame, mo):
     implying statistical significance.
     """)
     corpus_wide_intro = mo.vstack([
-        mo.md("## 4. What else changed across the whole corpus?"),
+        mo.md("## 4. Broader corpus shifts remain confounded by publisher and event changes"),
         mo.callout(
             mo.md(
                 f"These tabs compare **all eligible claim texts**, not distributions "
@@ -903,7 +917,14 @@ def analyze_media_distribution(
             yOffset="era:N",
             tooltip=["era:N", "modality:N", "claim_texts:Q", alt.Tooltip("share_pct:Q", format=".2f")],
         )
-        .properties(width="container", height=300, title="Mentioned media format before and after launch")
+        .properties(
+            width="container",
+            height=300,
+            title=(
+                f"{media_largest_shift['modality']} shows the largest mentioned-format shift "
+                f"({media_largest_shift['change_pp']:+.2f} pp)"
+            ),
+        )
     )
     media_delta_chart = (
         alt.Chart(media_summary)
@@ -918,7 +939,14 @@ def analyze_media_distribution(
             ),
             tooltip=["modality:N", alt.Tooltip("change_pp:Q", format="+.2f")],
         )
-        .properties(width="container", height=300, title="Direction and size of modality shifts")
+        .properties(
+            width="container",
+            height=300,
+            title=(
+                f"{media_largest_shift['modality']} changes most across mentioned formats "
+                f"({media_largest_shift['change_pp']:+.2f} pp)"
+            ),
+        )
     )
 
     media_section = mo.vstack([
@@ -952,7 +980,7 @@ def analyze_media_distribution(
 @app.cell(hide_code=True)
 def explain_theme_distribution(mo):
     theme_explanation = mo.md("""
-    ### Co-occurring retrieval themes
+    ### Retrieval-theme shifts describe query coverage, not a universal hoax taxonomy
 
     The configured extraction vocabulary is grouped into broad, multi-label retrieval
     themes, so percentages can sum above 100%. These rates describe changing query
@@ -1015,7 +1043,14 @@ def analyze_theme_distribution(
             yOffset="era:N",
             tooltip=["era:N", "theme:N", "claim_texts:Q", alt.Tooltip("coverage_pct:Q", format=".2f")],
         )
-        .properties(width="container", height=380, title="Multi-label theme coverage by era")
+        .properties(
+            width="container",
+            height=380,
+            title=(
+                f"{theme_rising['theme']} rises most; {theme_declining['theme']} falls most "
+                "across retrieval themes"
+            ),
+        )
     )
     theme_delta_chart = (
         alt.Chart(theme_summary)
@@ -1030,7 +1065,14 @@ def analyze_theme_distribution(
             ),
             tooltip=["theme:N", alt.Tooltip("change_pp:Q", format="+.2f")],
         )
-        .properties(width="container", height=380, title="Theme coverage shifts")
+        .properties(
+            width="container",
+            height=380,
+            title=(
+                f"Retrieval-theme change ranges from {theme_declining['change_pp']:+.2f} to "
+                f"{theme_rising['change_pp']:+.2f} percentage points"
+            ),
+        )
     )
 
     theme_section = mo.vstack([
@@ -1064,7 +1106,7 @@ def analyze_theme_distribution(
 @app.cell(hide_code=True)
 def explain_lexical_shift(mo):
     lexical_explanation = mo.md("""
-    ### Lexical shift in claim wording
+    ### Claim wording shifts can reflect events, retrieval, or publisher language
 
     Each unique claim text contributes once per era, and terms are compared by
     document prevalence rather than raw repetition. These are descriptive language
@@ -1158,7 +1200,14 @@ def analyze_lexical_shift(
                 alt.Tooltip("change_pp:Q", format="+.2f"),
             ],
         )
-        .properties(width="container", height=620, title="Largest wording shifts")
+        .properties(
+            width="container",
+            height=620,
+            title=(
+                f"{lexical_rising['term']} rises most; {lexical_declining['term']} falls most "
+                "in claim wording"
+            ),
+        )
     )
 
     lexical_section = mo.vstack([
@@ -1182,7 +1231,7 @@ def analyze_lexical_shift(
 @app.cell(hide_code=True)
 def explain_publisher_composition(mo):
     publisher_explanation = mo.md("""
-    ### Publisher composition and coverage sensitivity
+    ### Publisher-mix shifts confound the aggregate era comparison
 
     Publisher mix can change the aggregate distribution even when the underlying
     claim population does not. Publisher shares and within-publisher AI-linked rates
@@ -1267,7 +1316,14 @@ def analyze_publisher_composition(
                 "ai_linked_records:Q", alt.Tooltip("within_publisher_ai_pct:Q", format=".3f"),
             ],
         )
-        .properties(width="container", height=430, title="Publisher composition (top 12 across both eras)")
+        .properties(
+            width="container",
+            height=430,
+            title=(
+                f"{publisher_largest_shift['publisher_site']} has the largest era share shift "
+                f"({publisher_largest_shift['share_change_pp']:+.2f} pp), confounding the aggregate comparison"
+            ),
+        )
     )
 
     publisher_section = mo.vstack([
@@ -1313,7 +1369,7 @@ def render_corpus_wide_changes(
 @app.cell(hide_code=True)
 def explain_answer(mo):
     mo.md("""
-    ## 5. Methods, limitations, records, and download
+    ## 5. The evidence supports observed emergence—not broad transformation or causation
 
     Detailed grains, date eligibility, sensitivity choices, and record-level audit
     fields remain available below. The classified subset keeps heterogeneous publisher

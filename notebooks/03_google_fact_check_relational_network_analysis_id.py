@@ -7,7 +7,7 @@ app = marimo.App(width="full")
 @app.cell(hide_code=True)
 def introduce_report(mo):
     mo.md("""
-    # Descriptive, Temporal, and Relational Network Analysis of Indonesian Fact-Check Records
+    # Retrieval overlap—not social interaction—structures these four association networks
 
     This research-oriented report turns the cached Google Fact Check Tools extract
     into four explicitly defined association networks: keyword co-matches,
@@ -49,14 +49,14 @@ def render_network_executive_summary(
     )
 
     network_summary = mo.vstack([
-        mo.md("""
-        ## 1. Executive summary
+        mo.md(f"""
+        ## 1. `{summary_top_keyword['label']}` is the strongest retrieval bridge at support ≥5
 
-        [How to read the networks](#2-how-to-read-the-four-networks) ·
-        [Retrieval and publishers](#3-retrieval-and-publisher-structure) ·
-        [Actors and publishers](#4-actor-and-publisher-associations) ·
-        [Change over time](#5-how-network-structure-changes-over-time) ·
-        [Methods and data](#6-methods-sensitivity-audit-and-data)
+        [Edge meanings](#2-each-edge-encodes-retrieval-overlap-co-mention-or-indexed-coverage) ·
+        [Retrieval and publishers](#3-retrieval-overlap-fragments-into-communities-and-links-publishers-to-queries) ·
+        [Candidate names and publishers](#4-candidate-names-recur-together-in-claim-text-and-across-publisher-reviews) ·
+        [Change over time](#5-thresholded-association-networks-change-across-years-and-matched-windows) ·
+        [Methods and data](#6-provenance-sensitivity-and-audits-bound-every-network-finding)
         """),
         mo.hstack([
             mo.stat(f"{summary_keyword_graph['nodes']:,}", label="Keyword nodes", bordered=True),
@@ -109,7 +109,7 @@ def explain_scope(
 ):
     network_reading_guide = mo.vstack([
         mo.md(f"""
-        ## 2. How to read the four networks
+        ## 2. Each edge encodes retrieval overlap, co-mention, or indexed coverage
 
         - **Keyword co-match:** two query keywords retrieved the same reviewed claim.
         - **Publisher–keyword:** a publisher reviewed a claim retrieved by a keyword.
@@ -874,9 +874,9 @@ def render_provenance_and_grains(
 @app.cell(hide_code=True)
 def explain_keyword_network(mo):
     mo.md("""
-    ## 3. Retrieval and publisher structure
+    ## 3. Retrieval overlap fragments into communities and links publishers to queries
 
-    ### Keyword co-match network
+    ### Keyword co-match edges reveal retrieval bridges—not information flow
 
     Nodes are configured API query keywords. Two nodes connect when both queries
     retrieved the same reviewed-claim record. Edge support counts shared records;
@@ -932,10 +932,16 @@ def build_keyword_network(
     keyword_visual_nodes, keyword_visual_edges = backbone_frames(
         keyword_node_metrics, keyword_edges, max_nodes=35, neighbors_per_node=3
     )
+    keyword_top_bridge = keyword_node_metrics.sort(
+        ["betweenness", "strength"], descending=True
+    ).row(0, named=True)
     keyword_chart = network_chart(
         keyword_visual_nodes,
         keyword_visual_edges,
-        "Keyword co-match backbone",
+        (
+            f"{keyword_top_bridge['label']} has the highest betweenness in the "
+            "keyword co-match graph"
+        ),
         "community_id",
         "Community",
     )
@@ -963,6 +969,7 @@ def build_keyword_network(
         keyword_node_metrics,
         keyword_nodes,
         keyword_summary,
+        keyword_top_bridge,
     )
 
 
@@ -973,11 +980,12 @@ def render_keyword_network(
     keyword_edges,
     keyword_node_metrics,
     keyword_summary,
+    keyword_top_bridge,
     mo,
     pl,
 ):
     keyword_summary_row = keyword_summary.row(0, named=True)
-    top_bridge = keyword_node_metrics.sort(["betweenness", "strength"], descending=True).row(0, named=True)
+    top_bridge = keyword_top_bridge
     keyword_community_summary = (
         keyword_node_metrics
         .sort(["community_id", "strength", "label"], descending=[False, True, False])
@@ -1046,7 +1054,7 @@ def render_keyword_network(
 @app.cell(hide_code=True)
 def explain_publisher_keyword(mo):
     mo.md("""
-    ### Publisher–keyword coverage network
+    ### Publisher–keyword edges describe indexed review coverage, not editorial intent
 
     This bipartite network links a publisher site to a query keyword when at least
     one indexed reviewed claim from that publisher matched the keyword. The
@@ -1188,15 +1196,23 @@ def render_publisher_keyword_network(
     labels = alt.Chart(visual_nodes).mark_text(
         align=alt.expr("datum.x < 0.5 ? 'right' : 'left'"), dx=alt.expr("datum.x < 0.5 ? -8 : 8"), fontSize=10
     ).encode(x="x:Q", y="y:Q", text="label:N")
+    publisher_count = publisher_keyword_edges["publisher_site"].n_unique()
+    publisher_keyword_count = publisher_keyword_edges["keyword"].n_unique()
+    publisher_keyword_edge_count = publisher_keyword_edges.height
     bipartite_chart = (edge_layer + node_layer + labels).properties(
-        width="container", height=620, title="Publisher–keyword coverage backbone"
+        width="container",
+        height=620,
+        title=(
+            f"{publisher_count} sites form {publisher_keyword_edge_count} indexed coverage links "
+            f"across {publisher_keyword_count} queries"
+        ),
     )
     publisher_keyword_section = mo.vstack(
         [
             mo.md(
-                f"The full bipartite graph contains **{publisher_keyword_edges['publisher_site'].n_unique()} publisher sites**, "
-                f"**{publisher_keyword_edges['keyword'].n_unique()} keywords**, and "
-                f"**{publisher_keyword_edges.height} observed publisher–keyword edges**."
+                f"The full bipartite graph contains **{publisher_count} publisher sites**, "
+                f"**{publisher_keyword_count} keywords**, and "
+                f"**{publisher_keyword_edge_count} observed publisher–keyword edges**."
             ),
             bipartite_chart,
             mo.ui.tabs({
@@ -1224,18 +1240,24 @@ def render_publisher_keyword_network(
 @app.cell(hide_code=True)
 def explain_actor_quality(mo):
     mo.md("""
-    ## 4. Actor and publisher associations
+    ## 4. Candidate names recur together in claim text and across publisher reviews
 
-    The actor layer combines model-generated PERSON/ORGANIZATION spans with the
-    structured claimant field. The model is not manually adjudicated and exposes
-    no calibrated document-level confidence. Exact Unicode-normalized identity is
-    the only alias merge; `Anies` and `Anies Baswedan`, for example, remain
-    separate unless their normalized strings are equal.
+    This section answers two concrete questions:
 
-    Structured claimants that are missing, publisher-like, domain-like,
-    placeholders, or generic source/platform descriptions are excluded. Rejected
-    values remain visible below. This prevents labels such as `Suara.com`,
-    `Berbagai sumber`, or `Akun Facebook` from becoming central “actors.”
+    1. Which candidate names appear in the same unique claim text?
+    2. Which indexed publisher sites reviewed claims containing each candidate name?
+
+    Candidate names combine model-generated PERSON/ORGANIZATION spans with the
+    structured claimant field. They are discovery labels, not verified identities.
+    The model is not manually adjudicated and exposes no calibrated document-level
+    confidence. Exact Unicode-normalized identity is the only alias merge, so
+    `Anies` and `Anies Baswedan` remain separate.
+
+    Missing, publisher-like, domain-like, placeholder, and generic claimant values
+    are excluded and retained in the audit. Co-occurrence means only that two labels
+    appear in the same text; publisher coverage means only that a site reviewed a
+    claim containing the label. Neither relation establishes identity, affiliation,
+    coordination, or interaction.
     """)
     return
 
@@ -1291,13 +1313,6 @@ def build_actor_networks(
     actor_visual_nodes = actor_visual_nodes.with_columns(
         pl.col("provenance_flags").list.join(" + ").alias("provenance_group")
     )
-    actor_chart = network_chart(
-        actor_visual_nodes,
-        actor_visual_edges,
-        "Actor co-mention backbone",
-        "provenance_group",
-        "Provenance",
-    )
 
     actor_publisher_links = (
         review_frame
@@ -1339,6 +1354,19 @@ def build_actor_networks(
     )
     actor_node_metrics = actor_node_metrics.join(actor_breadth, left_on="node_id", right_on="actor_id", how="left").with_columns(
         pl.col("reviewed_claims").fill_null(0), pl.col("publisher_breadth").fill_null(0)
+    )
+    actor_top_node = actor_node_metrics.sort(
+        ["strength", "support", "label"], descending=[True, True, False]
+    ).row(0, named=True)
+    actor_chart = network_chart(
+        actor_visual_nodes,
+        actor_visual_edges,
+        (
+            f"{actor_top_node['label']} has the strongest retained co-mention footprint—"
+            "but remains unverified"
+        ),
+        "provenance_group",
+        "Provenance",
     )
     actor_bridge_pairs = {tuple(sorted(edge)) for edge in nx.bridges(actor_graph)}
     actor_edges = actor_edges.with_columns(
@@ -1417,6 +1445,7 @@ def build_actor_networks(
         actor_publisher_visual_nodes,
         actor_summary,
         actor_support_frame,
+        actor_top_node,
         eligible_actor_ids,
         primary_actor_occurrences,
     )
@@ -1434,6 +1463,7 @@ def render_actor_quality_and_networks(
     actor_publisher_visual_edges,
     actor_publisher_visual_nodes,
     actor_summary,
+    actor_top_node,
     alt,
     mo,
     ner_span_frame,
@@ -1486,16 +1516,239 @@ def render_actor_quality_and_networks(
         dx=alt.expr("datum.x < 0.5 ? -8 : 8"),
         fontSize=10,
     ).encode(x="x:Q", y="y:Q", text="label:N")
+    actor_publisher_site_count = actor_publisher_edges["publisher_site"].n_unique()
     actor_publisher_chart = (
         actor_publisher_edge_layer + actor_publisher_node_layer + actor_publisher_labels
     ).properties(
         width="container",
         height=620,
-        title="Actor–publisher coverage backbone",
+        title=(
+            f"Retained actor candidates connect to {actor_publisher_site_count} publisher sites "
+            "through indexed review coverage"
+        ),
     )
 
     actor_summary_row = actor_summary.row(0, named=True)
-    actor_section_top_actor = actor_node_metrics.row(0, named=True)
+    actor_section_top_actor = actor_top_node
+    actor_label_lookup = actor_node_metrics.select(
+        pl.col("node_id").alias("actor_id"),
+        "label",
+    )
+
+    actor_frequency_frame = (
+        actor_node_metrics
+        .sort(["support", "strength", "label"], descending=[True, True, False])
+        .head(12)
+        .with_columns(
+            pl.col("provenance_flags").list.join(" + ").alias("candidate_source")
+        )
+    )
+    actor_frequency_top = actor_frequency_frame.row(0, named=True)
+    actor_frequency_chart = (
+        alt.Chart(actor_frequency_frame)
+        .mark_bar(color="#4C78A8")
+        .encode(
+            x=alt.X("support:Q", title="Unique claim texts"),
+            y=alt.Y("label:N", title="Candidate name", sort="-x"),
+            tooltip=[
+                "label:N", "support:Q", "candidate_source:N",
+                "publisher_breadth:Q",
+            ],
+        )
+        .properties(
+            width="container",
+            height=430,
+            title=[
+                "Top candidate name",
+                f"{actor_frequency_top['label']}: {actor_frequency_top['support']:,} unique claim texts",
+            ],
+        )
+    )
+
+    source_labels = actor_label_lookup.rename(
+        {"actor_id": "source", "label": "source_label"}
+    )
+    target_labels = actor_label_lookup.rename(
+        {"actor_id": "target", "label": "target_label"}
+    )
+    actor_pair_frame = (
+        actor_edges
+        .join(source_labels, on="source", how="left")
+        .join(target_labels, on="target", how="left")
+        .with_columns(
+            pl.concat_str("source_label", "target_label", separator=" ↔ ").alias("candidate_pair")
+        )
+        .sort(["support", "candidate_pair"], descending=[True, False])
+    )
+    actor_pair_top = actor_pair_frame.row(0, named=True)
+    actor_pair_heat_candidates = actor_frequency_frame.head(8)
+    actor_pair_heat_ids = actor_pair_heat_candidates["node_id"].to_list()
+    actor_pair_heat_labels = actor_pair_heat_candidates["label"].to_list()
+    actor_pair_heat_label_map = dict(zip(actor_pair_heat_ids, actor_pair_heat_labels))
+    actor_pair_support_map = {
+        tuple(sorted((row["source"], row["target"]))): int(row["support"])
+        for row in actor_edges.iter_rows(named=True)
+    }
+    actor_pair_heatmap_frame = pl.DataFrame([
+        {
+            "row_label": actor_pair_heat_label_map[row_actor_id],
+            "column_label": actor_pair_heat_label_map[column_actor_id],
+            "support": (
+                None
+                if row_actor_id == column_actor_id
+                else actor_pair_support_map.get(
+                    tuple(sorted((row_actor_id, column_actor_id))), 0
+                )
+            ),
+        }
+        for row_actor_id in actor_pair_heat_ids
+        for column_actor_id in actor_pair_heat_ids
+    ])
+    actor_pair_heatmap_max = int(actor_pair_heatmap_frame["support"].max())
+    actor_pair_heatmap_base = (
+        alt.Chart(actor_pair_heatmap_frame)
+        .mark_rect(stroke="white", strokeWidth=0.5)
+        .encode(
+            x=alt.X(
+                "column_label:N",
+                title="Candidate name",
+                sort=actor_pair_heat_labels,
+                axis=alt.Axis(labelAngle=-40, labelLimit=100),
+            ),
+            y=alt.Y(
+                "row_label:N",
+                title="Candidate name",
+                sort=actor_pair_heat_labels,
+            ),
+            color=alt.Color(
+                "support:Q",
+                legend=None,
+                scale=alt.Scale(scheme="oranges", domain=[0, actor_pair_heatmap_max]),
+            ),
+            tooltip=["row_label:N", "column_label:N", "support:Q"],
+        )
+    )
+    actor_pair_heatmap_labels = (
+        alt.Chart(actor_pair_heatmap_frame.filter(pl.col("support") > 0))
+        .mark_text(fontSize=8)
+        .encode(
+            x=alt.X("column_label:N", sort=actor_pair_heat_labels),
+            y=alt.Y("row_label:N", sort=actor_pair_heat_labels),
+            text=alt.Text("support:Q"),
+            color=alt.condition(
+                alt.datum.support >= actor_pair_heatmap_max * 0.55,
+                alt.value("white"),
+                alt.value("#17231f"),
+            ),
+        )
+    )
+    actor_pair_chart = (
+        actor_pair_heatmap_base + actor_pair_heatmap_labels
+    ).properties(
+        width="container",
+        height=470,
+        title=[
+            "Candidate-name co-mentions",
+            f"{actor_pair_top['source_label']} +",
+            f"{actor_pair_top['target_label']}",
+            f"{actor_pair_top['support']:,} shared texts",
+        ],
+    )
+
+    actor_publisher_pair_frame = (
+        actor_publisher_edges
+        .join(actor_label_lookup, on="actor_id", how="left")
+        .with_columns(
+            pl.concat_str("label", "publisher_site", separator=" — ").alias("candidate_publisher")
+        )
+        .sort(["support", "candidate_publisher"], descending=[True, False])
+    )
+    actor_publisher_pair_top = actor_publisher_pair_frame.row(0, named=True)
+    actor_publisher_heat_candidates = (
+        actor_node_metrics
+        .sort(["reviewed_claims", "support", "label"], descending=[True, True, False])
+        .head(8)
+    )
+    actor_publisher_heat_ids = actor_publisher_heat_candidates["node_id"].to_list()
+    actor_publisher_heat_labels = actor_publisher_heat_candidates["label"].to_list()
+    actor_publisher_heat_label_map = dict(
+        zip(actor_publisher_heat_ids, actor_publisher_heat_labels)
+    )
+    actor_publisher_order = (
+        actor_publisher_edges
+        .group_by("publisher_site")
+        .agg(pl.col("support").sum().alias("total_support"))
+        .sort(["total_support", "publisher_site"], descending=[True, False])
+        ["publisher_site"]
+        .to_list()
+    )
+    actor_publisher_support_map = {
+        (row["actor_id"], row["publisher_site"]): int(row["support"])
+        for row in actor_publisher_edges.iter_rows(named=True)
+    }
+    actor_publisher_heatmap_frame = pl.DataFrame([
+        {
+            "label": actor_publisher_heat_label_map[actor_id],
+            "publisher_site": publisher_site,
+            "support": actor_publisher_support_map.get((actor_id, publisher_site), 0),
+        }
+        for actor_id in actor_publisher_heat_ids
+        for publisher_site in actor_publisher_order
+    ])
+    actor_publisher_heatmap_max = int(actor_publisher_heatmap_frame["support"].max())
+    actor_publisher_heatmap_base = (
+        alt.Chart(actor_publisher_heatmap_frame)
+        .mark_rect(stroke="white", strokeWidth=0.5)
+        .encode(
+            x=alt.X(
+                "publisher_site:N",
+                title="Indexed publisher site",
+                sort=actor_publisher_order,
+                axis=alt.Axis(labelAngle=-40, labelLimit=110),
+            ),
+            y=alt.Y(
+                "label:N",
+                title="Candidate name",
+                sort=actor_publisher_heat_labels,
+            ),
+            color=alt.Color(
+                "support:Q",
+                legend=None,
+                scale=alt.Scale(
+                    type="sqrt",
+                    scheme="greens",
+                    domain=[0, actor_publisher_heatmap_max],
+                ),
+            ),
+            tooltip=["label:N", "publisher_site:N", "support:Q"],
+        )
+    )
+    actor_publisher_heatmap_labels = (
+        alt.Chart(actor_publisher_heatmap_frame.filter(pl.col("support") > 0))
+        .mark_text(fontSize=8)
+        .encode(
+            x=alt.X("publisher_site:N", sort=actor_publisher_order),
+            y=alt.Y("label:N", sort=actor_publisher_heat_labels),
+            text=alt.Text("support:Q"),
+            color=alt.condition(
+                alt.datum.support >= actor_publisher_heatmap_max * 0.35,
+                alt.value("white"),
+                alt.value("#17231f"),
+            ),
+        )
+    )
+    actor_publisher_rank_chart = (
+        actor_publisher_heatmap_base + actor_publisher_heatmap_labels
+    ).properties(
+        width="container",
+        height=430,
+        title=[
+            "Candidate names by publisher",
+            f"{actor_publisher_pair_top['label']} + {actor_publisher_pair_top['publisher_site']}",
+            f"{actor_publisher_pair_top['support']:,} records",
+        ],
+    )
+
     actor_community_summary = (
         actor_node_metrics
         .sort(["community_id", "strength", "label"], descending=[False, True, False])
@@ -1508,15 +1761,7 @@ def render_actor_quality_and_networks(
         .sort(["total_strength", "community_id"], descending=[True, False])
     )
     actor_details = mo.ui.tabs({
-        "Communities": mo.ui.table(
-            actor_community_summary,
-            selection=None,
-            pagination=True,
-            page_size=20,
-            wrapped_columns=["leading_actors"],
-            show_column_summaries=False,
-        ),
-        "Actor metrics": mo.ui.table(
+        "Candidate metrics": mo.ui.table(
             actor_node_metrics.select(
                 "label", "normalized_actor", "support", "degree", "strength",
                 "betweenness", "publisher_breadth", "provenance_flags",
@@ -1526,11 +1771,37 @@ def render_actor_quality_and_networks(
             wrapped_columns=["provenance_flags", "model_entity_types"],
             show_column_summaries=False,
         ),
-        "Strongest co-mentions": mo.ui.table(
-            actor_edges.select(
-                "source", "target", "support", "is_bridge", "representative_record"
+        "Candidate-name pairs": mo.ui.table(
+            actor_pair_frame.select(
+                "source_label", "target_label", "support", "is_bridge",
+                "representative_record",
             ).head(60),
             selection=None, pagination=True, page_size=20, show_search=True,
+            show_column_summaries=False,
+        ),
+        "Candidate–publisher records": mo.ui.table(
+            actor_publisher_edges
+            .join(actor_label_lookup, on="actor_id", how="left")
+            .select("label", "publisher_site", "support")
+            .sort(["support", "label"], descending=[True, False])
+            .head(60),
+            selection=None, pagination=True, page_size=20, show_search=True,
+            show_column_summaries=False,
+        ),
+        "Network backbones (advanced)": mo.vstack([
+            mo.md(
+                "These topology views are retained for graph audit. Use the ranked charts "
+                "above for the direct record-level findings."
+            ),
+            actor_chart,
+            actor_publisher_chart,
+        ]),
+        "Communities (advanced)": mo.ui.table(
+            actor_community_summary,
+            selection=None,
+            pagination=True,
+            page_size=20,
+            wrapped_columns=["leading_actors"],
             show_column_summaries=False,
         ),
     })
@@ -1571,41 +1842,51 @@ def render_actor_quality_and_networks(
         [
             mo.hstack(
                 [
-                    mo.stat(f"{actor_occurrence_frame['actor_id'].n_unique():,}", label="All actor candidates", bordered=True),
-                    mo.stat(f"{actor_summary_row['nodes']:,}", label=f"Actors with ≥{ACTOR_MIN_TEXTS} texts", bordered=True),
-                    mo.stat(f"{actor_summary_row['edges']:,}", label=f"Co-mention edges ≥{ACTOR_MIN_COMENTIONS}", bordered=True),
-                    mo.stat(f"{actor_publisher_edges.height:,}", label="Actor–publisher edges", bordered=True),
+                    mo.stat(f"{actor_occurrence_frame['actor_id'].n_unique():,}", label="Candidate names before thresholding", bordered=True),
+                    mo.stat(f"{actor_summary_row['nodes']:,}", label=f"Candidates in ≥{ACTOR_MIN_TEXTS} texts", bordered=True),
+                    mo.stat(f"{actor_summary_row['edges']:,}", label=f"Name pairs in ≥{ACTOR_MIN_COMENTIONS} texts", bordered=True),
+                    mo.stat(f"{actor_publisher_edges.height:,}", label="Candidate–publisher combinations", bordered=True),
                 ], widths="equal", wrap=True,
             ),
             mo.callout(
                 mo.md(
-                    "Actor labels combine model-generated PERSON/ORGANIZATION mentions with "
-                    "conservatively retained structured claimants. They are mention candidates, "
-                    "not verified identities."
+                    "Candidate names combine model-generated PERSON/ORGANIZATION mentions with "
+                    "conservatively retained structured claimants. They may contain model errors "
+                    "or unresolved aliases and must not be treated as verified identities."
                 ),
                 kind="warn",
-                title="Model-generated actor layer",
+                title="Candidate names are not verified identities",
             ),
             mo.md(
-                f"The strongest retained co-mention node is **{actor_section_top_actor['label']}** "
-                f"(support {actor_section_top_actor['support']:,}; edge strength "
-                f"{actor_section_top_actor['strength']:.0f}; publisher breadth "
-                f"{actor_section_top_actor['publisher_breadth']}). Betweenness is exact for graphs "
-                "up to 200 nodes and otherwise uses a deterministic 200-node approximation."
+                f"**{actor_section_top_actor['label']}** appears in "
+                f"**{actor_section_top_actor['support']:,} unique claim texts**. Its retained "
+                f"co-mention counts sum to **{actor_section_top_actor['strength']:.0f}**, and "
+                f"**{actor_section_top_actor['publisher_breadth']} publisher sites** reviewed "
+                "claims containing that candidate name. These are corpus counts, not measures "
+                "of real-world importance or interaction."
             ),
-            mo.md("### Actor co-mention network"),
-            actor_chart,
+            mo.md("### Candidate names that appear most often in unique claim text"),
+            actor_frequency_chart,
+            mo.md("""
+            ### Candidate-name pairs that appear in the same claim text
+
+            Rows and columns are the eight most frequent retained candidate names. Each
+            off-diagonal cell counts unique claim texts containing both labels; darker
+            cells mean more shared texts. The matrix is symmetric, and the blank diagonal
+            avoids treating a name's own frequency as a co-mention.
+            """),
+            actor_pair_chart,
+            mo.md("""
+            ### Publisher sites that reviewed claims containing candidate names
+
+            Rows are the eight candidate names appearing in the most reviewed claims;
+            columns are indexed publisher sites. Each cell counts reviewed-claim records
+            from that site containing the candidate label. This is review coverage, not
+            affiliation or endorsement.
+            """),
+            actor_publisher_rank_chart,
+            mo.md("### Detailed tables and advanced network views"),
             actor_details,
-            mo.md("### Actor–publisher coverage network"),
-            actor_publisher_chart,
-            mo.ui.table(
-                actor_publisher_edges.select("actor_id", "publisher_site", "support").head(60),
-                selection=None,
-                pagination=True,
-                page_size=20,
-                show_search=True,
-                show_column_summaries=False,
-            ),
         ]
     )
     actor_section
@@ -1685,13 +1966,17 @@ def render_sensitivity(
         x=alt.X("shared_claim_threshold:O", title="Minimum shared reviewed claims"),
         y=alt.Y("edges:Q", title="Retained edges"),
         tooltip=["shared_claim_threshold:O", "nodes:Q", "active_nodes:Q", "edges:Q", alt.Tooltip("density:Q", format=".4f"), "components:Q"],
-    ).properties(width="container", height=280, title="Keyword threshold sensitivity")
+    ).properties(width="container", height=280, title="Raising support thresholds removes keyword edges")
     sensitivity_actor_chart = alt.Chart(actor_sensitivity).mark_line(point=True).encode(
         x=alt.X("co_mention_threshold:O", title="Minimum co-mentioning texts"),
         y=alt.Y("edges:Q", title="Retained edges"),
         color=alt.Color("actor_text_threshold:O", title="Actor text threshold"),
         tooltip=["actor_text_threshold:O", "co_mention_threshold:O", "nodes:Q", "active_nodes:Q", "edges:Q", alt.Tooltip("density:Q", format=".4f"), "components:Q"],
-    ).properties(width="container", height=280, title="Actor threshold sensitivity")
+    ).properties(
+        width="container",
+        height=280,
+        title="Actor edge counts depend on node and co-mention thresholds",
+    )
     sensitivity_section = mo.vstack(
         [
             sensitivity_explanation,
@@ -1713,7 +1998,7 @@ def render_sensitivity(
 @app.cell(hide_code=True)
 def explain_temporal_networks(mo):
     mo.md("""
-    ## 5. How network structure changes over time
+    ## 5. Thresholded association networks change across years and matched windows
 
     Two designs complement each other:
 
@@ -2116,13 +2401,13 @@ def render_temporal_networks(
         y=alt.Y("edges:Q", title="Thresholded edges"),
         color=alt.Color("network_family:N", title="Network"),
         tooltip=["period:O", "network_family:N", "reviewed_claims:Q", "active_nodes:Q", "edges:Q", alt.Tooltip("density:Q", format=".4f"), "components:Q"],
-    ).properties(width="container", height=320, title="Yearly thresholded network size")
+    ).properties(width="container", height=320, title="Thresholded keyword and actor edge counts vary by year")
     modularity_chart = alt.Chart(yearly_metric_frame).mark_line(point=True).encode(
         x=alt.X("period:O", title="Eligible calendar year"),
         y=alt.Y("modularity:Q", title="Greedy modularity", scale=alt.Scale(zero=False)),
         color=alt.Color("network_family:N", title="Network"),
         tooltip=["period:O", "network_family:N", alt.Tooltip("modularity:Q", format=".4f"), alt.Tooltip("degree_centralization:Q", format=".4f"), "top_node:N", "top_strength:Q"],
-    ).properties(width="container", height=320, title="Yearly modularity and centralization")
+    ).properties(width="container", height=320, title="Community separation varies by year and network")
     top_rank_changes = (
         window_rank_change
         .filter(pl.col("pre_strength") + pl.col("post_strength") > 0)
@@ -2233,7 +2518,7 @@ def render_temporal_networks(
 @app.cell(hide_code=True)
 def explain_outputs_and_limits(mo):
     mo.md("""
-    ## 6. Methods, sensitivity, audit, and data
+    ## 6. Provenance, sensitivity, and audits bound every network finding
 
     Detailed provenance, threshold sensitivity, actor exclusions, and model audits
     remain available below through progressive disclosure. They support reproducible

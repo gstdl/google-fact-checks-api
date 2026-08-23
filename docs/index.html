@@ -526,7 +526,7 @@
       <p class="eyebrow">Preliminary exploratory research · Indonesian fact checks</p>
       <h1>Google Fact Check Tool Data Extract</h1>
       <p class="hero-question">What becomes visible when 7,746 indexed fact checks are read as a system—not just a spreadsheet?</p>
-      <p class="hero-answer"><strong>Coverage is concentrated, retrieval themes overlap, and rule-confirmed AI-linked records appear only in the post-launch window in this extract.</strong> The analyses answer three distinct questions: what is present, what changes over time, and what connects.</p>
+      <p class="hero-answer"><strong>Three publisher sites dominate coverage, retrieval themes overlap, and rule-confirmed AI-linked records appear only in the post-launch window.</strong> The reports trace each finding from corpus construction through descriptive, temporal, and relational evidence.</p>
       <p class="study-status"><strong>Study status: preliminary exploratory research.</strong> The findings are hypothesis-generating and do not estimate population prevalence or establish causal effects.</p>
       <aside class="snapshot-watermark" aria-label="Canonical data extraction time">
         <strong>Traced data snapshot</strong>
@@ -543,13 +543,13 @@
 
     <section class="why shell" aria-labelledby="why-heading">
       <p class="section-label">What we found · current snapshot</p>
-      <h2 class="section-heading" id="why-heading">Three signals worth investigating.</h2>
+      <h2 class="section-heading" id="why-heading">Three findings define the current snapshot.</h2>
       <p class="section-intro">Start with the signals, then follow their evidence trail from corpus construction to analysis and application.</p>
       <div class="findings">
         <article class="finding">
           <span class="finding-value">82.6%</span>
-          <h3>Visibility is concentrated.</h3>
-          <p>The three largest publisher sites supply most reviewed claims. A shift in publisher mix can move the aggregate trend even when the underlying claim population does not.</p>
+          <h3><em>suara.com</em>, <em>tempo.co</em>, and <em>turnbackhoax.id</em> account for 82.6% of all 7,746 reviewed-claim records.</h3>
+          <p>This concentration belongs to the indexed extract. A shift in publisher mix can move the aggregate trend even when the underlying claim population does not.</p>
           <a class="finding-link" href="analysis.html">See descriptive evidence →</a>
         </article>
         <article class="finding">
@@ -570,18 +570,18 @@
     <section class="reports" aria-labelledby="reports-heading">
       <div class="shell">
         <p class="section-label">How we know</p>
-        <h2 class="section-heading" id="reports-heading">Follow the evidence from extraction to application.</h2>
-        <p class="section-intro">Begin with corpus construction, continue through descriptive and relational analysis, and end with the bounded generative-AI study.</p>
+        <h2 class="section-heading" id="reports-heading">Each finding is traceable from extraction to analytical output.</h2>
+        <p class="section-intro">The traced corpus supports descriptive and relational analysis before a bounded generative-AI application.</p>
 
         <section class="method-section" aria-labelledby="method-heading">
           <header class="method-heading">
             <span>Step 1 · Build</span>
-            <h3 id="method-heading">Extraction &amp; provenance</h3>
-            <p>Establishes how the evidence was assembled before any interpretation begins.</p>
+            <h3 id="method-heading">A checksum-linked snapshot anchors every result.</h3>
+            <p>The procedural extraction report establishes how the evidence was assembled before interpretation begins.</p>
           </header>
           <article class="report extraction">
             <p class="report-number">Data Extraction via Google Fact Check Tool API</p>
-            <h4>Can the evidence pipeline be audited?</h4>
+            <h4>The canonical extract is linked to immutable provenance.</h4>
             <p class="executive-summary">The extraction report documents the API workflow, query vocabulary, deduplication, refresh controls, and reproducibility decisions. It makes corpus construction auditable and shows why every finding is bounded by what Google indexed and what the 112 configured queries retrieved.</p>
             <div class="actions">
               <a class="button primary" href="extraction.html">Audit extraction and code →</a>
@@ -592,15 +592,15 @@
         <section class="analysis-section" aria-labelledby="analysis-heading">
           <header class="analysis-heading">
             <span>Step 2 · Analyze</span>
-            <h3 id="analysis-heading">Describe the corpus and follow change. Map relationships.</h3>
-            <p>Two reports cover three analytical lenses without duplicating destinations: EDA handles descriptive and record-level temporal analysis, while Network handles pairwise relations and graph evolution.</p>
+            <h3 id="analysis-heading">Publisher concentration, retrieval overlap, and temporal change shape the corpus.</h3>
+            <p>EDA establishes the record-level patterns; the network report tests how retrieval and co-mention associations connect and change.</p>
           </header>
 
           <div class="lens-grid">
             <article class="report eda">
               <p class="report-number">Descriptive &amp; temporal analysis</p>
-              <h4>What is present, and what changes over time?</h4>
-              <p class="executive-summary"><strong>The indexed corpus is highly concentrated:</strong> the three largest publisher sites contribute 82.6% of reviewed claims, so aggregate patterns partly reflect the publisher mix. The EDA establishes baseline patterns in coverage, metadata quality, ratings, claimants, language, and topics, then follows record-level change across calendar periods. Temporal views audit missing dates and publisher-composition changes and remain descriptive rather than causal.</p>
+              <h4><em>suara.com</em>, <em>tempo.co</em>, and <em>turnbackhoax.id</em> account for 82.6% of all 7,746 reviewed-claim records.</h4>
+              <p class="executive-summary">Publisher concentration and multi-query retrieval overlap shape aggregate patterns in this extract. The EDA establishes coverage, metadata, rating, claimant, language, and text patterns, then follows eligible records across calendar periods without making causal claims.</p>
               <div class="actions">
                 <a class="button primary" href="analysis.html">Open EDA report →</a>
                 <a class="button" href="analysis-with-code.html">View with code</a>
@@ -609,7 +609,7 @@
 
             <article class="report network">
               <p class="report-number">Network analysis</p>
-              <h4>What connects?</h4>
+              <h4><em>video</em> is the strongest retrieval bridge at support ≥5.</h4>
               <p class="executive-summary">At support ≥5, 112 keyword nodes form 259 edges and 47 communities, with <em>video</em> as the highest-betweenness retrieval bridge. The keyword, actor, and publisher graphs represent retrieval overlap, textual co-mention, and indexed coverage—not real-world interaction, diffusion, coordination, or causality.</p>
               <div class="actions">
                 <a class="button primary" href="network-analysis.html">Explore network evidence →</a>
@@ -623,12 +623,12 @@
         <section class="application-section" aria-labelledby="application-heading">
           <header class="application-heading">
             <span>Step 3 · Apply</span>
-            <h3 id="application-heading">Applied study</h3>
-            <p>Uses the Temporal lens to answer a bounded research question; it is not a fourth analytical category.</p>
+            <h3 id="application-heading">Explicit AI-linked records emerge after launch but remain rare.</h3>
+            <p>The applied study uses the temporal lens without treating the launch breakpoint as a causal intervention.</p>
           </header>
           <article class="report temporal">
             <p class="report-number">Generative AI and Hoax Distribution</p>
-            <h4>When do strict AI-linked records emerge around ChatGPT's public launch?</h4>
+            <h4>All 14 dated rule-confirmed AI-linked records appear after ChatGPT's public launch.</h4>
             <p class="executive-summary">Across the full dated history, rule-confirmed AI-linked records move from 0 of 2,094 pre-launch (before 30 November 2022) claims to 14 of 4,273 post-launch claims. These periods have unequal durations, but the balanced three-year sensitivity supports the same direction. The result shows observed emergence—not a causal generative-AI effect.</p>
             <div class="actions">
               <a class="button primary" href="generative-ai.html">Read the applied study →</a>
@@ -642,21 +642,21 @@
     <section class="evidence-gaps shell" aria-labelledby="gaps-heading">
       <div class="gap-panel">
         <p class="section-label">Current evidence limit</p>
-        <h2 class="section-heading" id="gaps-heading">What this evidence cannot establish</h2>
+        <h2 class="section-heading" id="gaps-heading">This extract supports bounded associations—not population prevalence or causation.</h2>
         <p class="section-intro">The reports establish what appears in this extract. They do not establish population prevalence, broad transformation, or causation.</p>
         <div class="gap-grid">
           <article class="gap-item">
-            <h3>Corpus and relationship boundaries</h3>
+            <h3>Query and publisher coverage bound every reported relationship.</h3>
             <p>This is a query-conditioned view of Google's indexed fact-check corpus—not a census of Indonesian misinformation. Network relationships are observed associations, not evidence of diffusion, coordination, endorsement, influence, or causality.</p>
           </article>
           <article class="gap-item">
-            <h3>Sparse AI-linked evidence</h3>
+            <h3>Fourteen AI-linked records cannot establish broad transformation.</h3>
             <p>The small rule-confirmed subset documents observed emergence, but it cannot support a claim of broad transformation or estimate the prevalence of AI-linked claims on social media.</p>
           </article>
         </div>
         <aside class="future-layer" aria-labelledby="future-layer-heading">
           <p class="section-label">Next steps</p>
-          <h3 id="future-layer-heading">Planned evidence extensions: referred articles and a separate social-media layer</h3>
+          <h3 id="future-layer-heading">Article and social-media evidence require separate populations and denominators.</h3>
           <p>No article scraper or social-media collector is part of the current evidence. Future work should add these as bounded layers without changing the reviewed-claim grain:</p>
           <ul>
             <li><strong>Referred-article text:</strong> retrieve public fact-check pages referenced by <code>review_url</code> to analyze the claim context, review narrative, cited evidence, and explicitly linked sources.</li>
