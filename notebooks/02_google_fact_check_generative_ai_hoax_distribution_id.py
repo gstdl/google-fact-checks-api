@@ -632,6 +632,36 @@ def analyze_prevalence(
     primary_frame,
 ):
     prevalence_timeline = dated_frame
+    weekly_observed = (
+        prevalence_timeline
+        .with_columns(pl.col("claim_dt").dt.truncate("1w").alias("week_start"))
+        .group_by("week_start")
+        .len(name="reviewed_claims")
+        .sort("week_start")
+    )
+    weekly_index = pl.DataFrame({
+        "week_start": pl.datetime_range(
+            weekly_observed["week_start"].min(),
+            weekly_observed["week_start"].max(),
+            interval="1w",
+            eager=True,
+            time_zone="UTC",
+        )
+    })
+    prevalence_weekly = (
+        weekly_index
+        .join(weekly_observed, on="week_start", how="left")
+        .with_columns(pl.col("reviewed_claims").fill_null(0))
+    )
+    ai_timeline_rug = (
+        prevalence_timeline
+        .filter(pl.col("is_ai_linked"))
+        .with_columns(
+            pl.col("matched_ai_terms").list.join(", ").alias("matched_ai_terms_label")
+        )
+        .select("claim_dt", "claim_text", "matched_ai_terms_label")
+        .sort("claim_dt")
+    )
     prevalence_monthly = (
         prevalence_timeline
         .with_columns(pl.col("claim_dt").dt.truncate("1mo").alias("month_start"))
@@ -725,9 +755,99 @@ def analyze_prevalence(
         (prevalence_change_pp == 0 and sensitivity_change_pp == 0)
     )
 
-    breakpoint_rule = alt.Chart(pl.DataFrame({"breakpoint": [BREAKPOINT]})).mark_rule(
+    breakpoint_data = pl.DataFrame({
+        "breakpoint": [BREAKPOINT],
+        "label": ["ChatGPT public launch · 30 Nov 2022"],
+    })
+    breakpoint_rule = alt.Chart(breakpoint_data).mark_rule(
         color="#E45756", strokeDash=[6, 4], strokeWidth=2
     ).encode(x="breakpoint:T")
+    breakpoint_label = (
+        alt.Chart(breakpoint_data)
+        .mark_text(
+            align="right",
+            baseline="top",
+            dx=-8,
+            dy=8,
+            color="#B42318",
+            fontSize=13,
+            fontWeight=700,
+        )
+        .encode(x="breakpoint:T", y=alt.value(8), text="label:N")
+    )
+    weekly_claim_chart = (
+        alt.Chart(prevalence_weekly)
+        .mark_line(color="#315D88", strokeWidth=1.8)
+        .encode(
+            x=alt.X(
+                "week_start:T",
+                title=None,
+                axis=alt.Axis(labels=False, ticks=False),
+            ),
+            y=alt.Y(
+                "reviewed_claims:Q",
+                title="Reviewed-claim records per week",
+            ),
+            tooltip=[
+                alt.Tooltip("week_start:T", title="Week starting", format="%d %b %Y"),
+                alt.Tooltip("reviewed_claims:Q", title="Reviewed claims"),
+            ],
+        )
+        .properties(width="container", height=360)
+    )
+    ai_claim_rug = (
+        alt.Chart(ai_timeline_rug)
+        .mark_tick(color="#D97706", thickness=3, size=30)
+        .encode(
+            x=alt.X(
+                "claim_dt:T",
+                title="Claim week",
+                axis=alt.Axis(format="%Y", tickCount="year"),
+            ),
+            tooltip=[
+                alt.Tooltip("claim_dt:T", title="AI-linked claim date", format="%d %b %Y"),
+                alt.Tooltip("matched_ai_terms_label:N", title="Matched terms"),
+                alt.Tooltip("claim_text:N", title="Claim text"),
+            ],
+        )
+    )
+    overview_rug_panel = (
+        ai_claim_rug + breakpoint_rule
+    ).properties(
+        width="container",
+        height=36,
+        title=alt.Title(
+            f"Rule-confirmed AI-linked claim dates (n={ai_timeline_rug.height:,})",
+            anchor="start",
+            color="#9A5B00",
+            fontSize=12,
+        ),
+    )
+    prevalence_overview_chart = (
+        alt.vconcat(
+            weekly_claim_chart + breakpoint_rule + breakpoint_label,
+            overview_rug_panel,
+            spacing=8,
+        )
+        .resolve_scale(x="shared")
+        .properties(
+            title=alt.Title(
+                [
+                    "Weekly reviewed-claim coverage spans",
+                    "ChatGPT's launch",
+                ],
+                subtitle=[
+                    "Google Fact Check Tools API extract",
+                    f"Orange rug: {ai_timeline_rug.height:,} dated AI-linked records",
+                    "Launch marker is contextual, not causal",
+                ],
+                anchor="start",
+                fontSize=20,
+                subtitleFontSize=12,
+                offset=18,
+            )
+        )
+    )
     prevalence_count_chart = (
         alt.Chart(prevalence_monthly)
         .mark_bar(color="#4C78A8")
@@ -772,6 +892,13 @@ def analyze_prevalence(
 
     prevalence_section = mo.vstack([
         mo.md(
+            "The overview uses every parseable claim date and aggregates daily dates into "
+            "Monday-starting weeks for readability. The blue line counts all dated "
+            "reviewed-claim records; orange rug marks identify the small rule-confirmed "
+            "AI-linked subset."
+        ),
+        prevalence_overview_chart,
+        mo.md(
             f"Across the full dated history, explicit AI-linked records move from "
             f"**{prevalence_pre['ai_linked_claims']:,} of {prevalence_pre['all_reviewed_claims']:,} "
             f"({prevalence_pre['ai_linked_pct']:.3f}%)** before launch to "
@@ -781,12 +908,11 @@ def analyze_prevalence(
             f"ratio is **{prevalence_ratio_label}**."
         ),
         mo.md(
-            "The timeline includes every parseable claim date. November and Q4 2022 are "
-            "split exactly at the launch timestamp, so post-launch records are not plotted "
-            "inside a pre-launch bin."
+            "November and Q4 2022 are split exactly at the launch timestamp, so "
+            "post-launch records are not plotted inside a pre-launch bin."
         ),
-        prevalence_count_chart + breakpoint_rule,
         mo.ui.tabs({
+            "Monthly AI-linked counts": prevalence_count_chart + breakpoint_rule,
             "Quarterly prevalence": prevalence_rate_chart + breakpoint_rule,
             "Full-history result": mo.ui.table(
                 primary_prevalence,
