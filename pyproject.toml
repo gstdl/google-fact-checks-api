@@ -1,7 +1,7 @@
 [project]
-name = "ddf-hoax-temporal"
+name = "google-fact-check-api"
 version = "0.1.0"
-description = "Descriptive, temporal, and relational network analysis of Indonesian fact-check records"
+description = "Descriptive, temporal, and relational network analysis of Indonesian fact-check records using the Google Fact Check Tools API"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
