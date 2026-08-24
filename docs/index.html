@@ -461,6 +461,60 @@
     .reading-note strong { font-size: .9rem; }
     .reading-note p { margin: 0; color: var(--muted); font-size: .9rem; }
 
+    .transparency {
+      padding: 0 0 4.5rem;
+    }
+
+    .transparency-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .transparency-card {
+      padding: clamp(1.3rem, 3vw, 1.8rem);
+      border: 1px solid var(--line);
+      border-radius: 1.15rem;
+      background: var(--surface);
+      box-shadow: 0 8px 25px rgb(23 35 31 / 5%);
+    }
+
+    .transparency-card h3 {
+      margin: 0 0 .75rem;
+      font-size: 1.08rem;
+      line-height: 1.3;
+    }
+
+    .transparency-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .transparency-card p + p { margin-top: .8rem; }
+
+    .reference-list {
+      margin: 0;
+      padding-left: 1.25rem;
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .reference-list li + li { margin-top: .7rem; }
+
+    .reference-list a,
+    .transparency-card a,
+    .citation {
+      color: var(--brand-dark);
+      font-weight: 750;
+      text-underline-offset: .18em;
+    }
+
+    .citation {
+      margin-left: .15rem;
+      font-size: .72em;
+    }
+
     footer {
       padding: 2rem 0 3.5rem;
       border-top: 1px solid var(--line);
@@ -506,6 +560,7 @@
       .gap-grid,
       .future-layer ul,
       .lens-grid,
+      .transparency-grid,
       .application-section,
       .method-section { grid-template-columns: 1fr; }
       .lens-grid .report { min-height: 0; }
@@ -582,7 +637,7 @@
           <article class="report extraction">
             <p class="report-number">Data Extraction via Google Fact Check Tool API</p>
             <h4>The canonical extract is linked to immutable provenance.</h4>
-            <p class="executive-summary">The extraction report documents the API workflow, query vocabulary, deduplication, refresh controls, and reproducibility decisions. It makes corpus construction auditable and shows why every finding is bounded by what Google indexed and what the 112 configured queries retrieved.</p>
+            <p class="executive-summary">The extraction report documents the Google Fact Check Tools API workflow and its <code>claimReview</code> response objects<sup><a class="citation" href="#ref-google-api">[1]</a></sup>, query vocabulary, deduplication, refresh controls, and reproducibility decisions. It makes corpus construction auditable and shows why every finding is bounded by what Google indexed and what the 112 configured queries retrieved.</p>
             <div class="actions">
               <a class="button primary" href="extraction.html">Audit extraction and code →</a>
             </div>
@@ -610,7 +665,7 @@
             <article class="report network">
               <p class="report-number">Network analysis</p>
               <h4><em>video</em> is the strongest retrieval bridge at support ≥5.</h4>
-              <p class="executive-summary">At support ≥5, 112 keyword nodes form 259 edges and 47 communities, with <em>video</em> as the highest-betweenness retrieval bridge. The keyword, actor, and publisher graphs represent retrieval overlap, textual co-mention, and indexed coverage—not real-world interaction, diffusion, coordination, or causality.</p>
+              <p class="executive-summary">At support ≥5, 112 keyword nodes form 259 edges and 47 communities, with <em>video</em> as the highest-betweenness retrieval bridge. Candidate mentions use the pinned <code>cahya/bert-base-indonesian-NER</code> model<sup><a class="citation" href="#ref-ner-model">[3]</a></sup> and <code>BertTokenizerFast</code><sup><a class="citation" href="#ref-ner-tokenizer">[4]</a></sup>; they remain unverified. The keyword, actor, and publisher graphs represent retrieval overlap, textual co-mention, and indexed coverage—not real-world interaction, diffusion, coordination, or causality.</p>
               <div class="actions">
                 <a class="button primary" href="network-analysis.html">Explore network evidence →</a>
                 <a class="button" href="network-analysis-with-code.html">View with code</a>
@@ -629,7 +684,7 @@
           <article class="report temporal">
             <p class="report-number">Generative AI and Hoax Distribution</p>
             <h4>All 14 dated rule-confirmed AI-linked records appear after ChatGPT's public launch.</h4>
-            <p class="executive-summary">Across the full dated history, rule-confirmed AI-linked records move from 0 of 2,094 pre-launch (before 30 November 2022) claims to 14 of 4,273 post-launch claims. These periods have unequal durations, but the balanced three-year sensitivity supports the same direction. The result shows observed emergence—not a causal generative-AI effect.</p>
+            <p class="executive-summary">Across the full dated history, rule-confirmed AI-linked records move from 0 of 2,094 pre-launch (before 30 November 2022) claims to 14 of 4,273 post-launch claims.<sup><a class="citation" href="#ref-chatgpt-launch">[2]</a></sup> These periods have unequal durations, but the balanced three-year sensitivity supports the same direction. The result shows observed emergence—not a causal generative-AI effect.</p>
             <div class="actions">
               <a class="button primary" href="generative-ai.html">Read the applied study →</a>
               <a class="button" href="generative-ai-with-code.html">View with code</a>
@@ -668,6 +723,29 @@
             <li><strong>Decisions before code:</strong> platform, access, ethics, sampling, adjudication, retention, and linkage rules must be decided before collectors are introduced.</li>
           </ul>
         </aside>
+      </div>
+    </section>
+
+    <section class="transparency shell" aria-labelledby="transparency-heading">
+      <p class="section-label">Research transparency</p>
+      <h2 class="section-heading" id="transparency-heading">Sources and AI-use disclosure make this preliminary work auditable.</h2>
+      <p class="section-intro">These references support the data source, API response structure, temporal breakpoint, and NER implementation used across the reports. The disclosure distinguishes research evidence from AI-assisted work.</p>
+      <div class="transparency-grid">
+        <article class="transparency-card">
+          <h3>Core references</h3>
+          <ol class="reference-list">
+            <li id="ref-google-api">Google Developers. <a href="https://developers.google.com/fact-check/tools/api">Fact Check Tools API</a>.</li>
+            <li id="ref-chatgpt-launch">OpenAI. <a href="https://openai.com/index/chatgpt/">Introducing ChatGPT</a>. 30 November 2022.</li>
+            <li id="ref-ner-model">cahya. <a href="https://huggingface.co/cahya/bert-base-indonesian-NER/tree/a3a3fa494cf7555ef87f446af5e826de3ed181c0"><code>bert-base-indonesian-NER</code></a>, pinned revision <code>a3a3fa4</code> (MIT license).</li>
+            <li id="ref-ner-tokenizer">Hugging Face Transformers. <a href="https://huggingface.co/docs/transformers/model_doc/bert#transformers.BertTokenizerFast"><code>BertTokenizerFast</code></a>.</li>
+            <li>Project source, data-processing code, and reproducibility materials: <a href="https://github.com/gstdl/google-fact-checks-api">GitHub repository</a>.</li>
+          </ol>
+        </article>
+        <article class="transparency-card">
+          <h3>AI-use acknowledgment and disclaimer</h3>
+          <p>Claude supported initial source discovery. The Pi agent harness—using <code>ChatGPT-Sol-5.6</code>, <code>Claude-Opus-5</code>, and <code>Claude-Sonnet-5</code> also assisted with code drafting, editorial revision, and visualization iteration. Published outputs were reviewed against the project data, source code, and cited documentation; the authors retain responsibility for the research design, analysis, interpretation, and publication.</p>
+          <p>AI-generated output was not treated as research evidence and did not determine whether a reviewed claim was true or false. Separately, the pinned NER model and tokenizer are analytical dependencies—not generative-AI writing tools. They identify unverified mention candidates for the network analysis rather than verified identities.</p>
+        </article>
       </div>
     </section>
   </main>
