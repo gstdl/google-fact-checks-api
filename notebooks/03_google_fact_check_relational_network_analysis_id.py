@@ -1594,15 +1594,15 @@ def render_actor_quality_and_networks(
             "row_label": actor_pair_heat_label_map[row_actor_id],
             "column_label": actor_pair_heat_label_map[column_actor_id],
             "support": (
-                None
-                if row_actor_id == column_actor_id
-                else actor_pair_support_map.get(
+                actor_pair_support_map.get(
                     tuple(sorted((row_actor_id, column_actor_id))), 0
                 )
+                if row_index > column_index
+                else None
             ),
         }
-        for row_actor_id in actor_pair_heat_ids
-        for column_actor_id in actor_pair_heat_ids
+        for row_index, row_actor_id in enumerate(actor_pair_heat_ids)
+        for column_index, column_actor_id in enumerate(actor_pair_heat_ids)
     ])
     actor_pair_heatmap_max = int(actor_pair_heatmap_frame["support"].max())
     actor_pair_heatmap_base = (
@@ -1623,7 +1623,11 @@ def render_actor_quality_and_networks(
             color=alt.Color(
                 "support:Q",
                 legend=None,
-                scale=alt.Scale(scheme="oranges", domain=[0, actor_pair_heatmap_max]),
+                scale=alt.Scale(
+                    type="sqrt",
+                    scheme="oranges",
+                    domain=[0, actor_pair_heatmap_max],
+                ),
             ),
             tooltip=["row_label:N", "column_label:N", "support:Q"],
         )
@@ -1871,9 +1875,10 @@ def render_actor_quality_and_networks(
             ### Candidate-name pairs that appear in the same claim text
 
             Rows and columns are the eight most frequent retained candidate names. Each
-            off-diagonal cell counts unique claim texts containing both labels; darker
-            cells mean more shared texts. The matrix is symmetric, and the blank diagonal
-            avoids treating a name's own frequency as a co-mention.
+            visible cell counts unique claim texts containing both labels; darker cells
+            mean more shared texts. Because co-mention is symmetric, only the lower
+            triangle is shown to remove mirrored duplicates. The blank diagonal avoids
+            treating a name's own frequency as a co-mention.
             """),
             actor_pair_chart,
             mo.md("""
