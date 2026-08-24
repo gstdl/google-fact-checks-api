@@ -1157,25 +1157,19 @@ def render_keyword_overlap(
             keyword_pair_counts[(keyword_a_value, keyword_b_value)] += 1
 
     keyword_jaccard_rows = []
-    for keyword_a_index, keyword_a_value in enumerate(keyword_top25):
-        for keyword_b_index, keyword_b_value in enumerate(keyword_top25):
+    for keyword_a_value in keyword_top25:
+        for keyword_b_value in keyword_top25:
             if keyword_a_value == keyword_b_value:
                 keyword_shared = keyword_size_map[keyword_a_value]
             else:
                 keyword_shared = keyword_pair_counts[tuple(sorted((keyword_a_value, keyword_b_value)))]
             keyword_union = keyword_size_map[keyword_a_value] + keyword_size_map[keyword_b_value] - keyword_shared
-            keyword_jaccard_value = keyword_shared / keyword_union if keyword_union else 0.0
             keyword_jaccard_rows.append({
                 "keyword_a": keyword_a_value,
                 "keyword_b": keyword_b_value,
                 "shared_records": keyword_shared,
                 "union_records": keyword_union,
-                "jaccard": keyword_jaccard_value,
-                "heatmap_jaccard": (
-                    keyword_jaccard_value
-                    if keyword_b_index > keyword_a_index
-                    else None
-                ),
+                "jaccard": keyword_shared / keyword_union if keyword_union else 0.0,
             })
     keyword_jaccard = pl.DataFrame(keyword_jaccard_rows)
     keyword_top_pair = (
@@ -1225,69 +1219,30 @@ def render_keyword_overlap(
             ),
         )
     )
-    keyword_jaccard_heatmap_base = (
-        alt.Chart(keyword_jaccard)
-        .mark_rect(stroke="white", strokeWidth=0.4)
-        .encode(
-            x=alt.X(
-                "keyword_a:N",
-                title=None,
-                sort=keyword_top25,
-                axis=alt.Axis(
-                    labelAngle=-55,
-                    labelLimit=80,
-                    labelFontSize=8,
-                    labelOverlap="greedy",
-                ),
-            ),
-            y=alt.Y(
-                "keyword_b:N",
-                title=None,
-                sort=keyword_top25,
-                axis=alt.Axis(labelLimit=90, labelFontSize=9),
-            ),
-            color=alt.Color(
-                "heatmap_jaccard:Q",
-                title="Jaccard",
-                scale=alt.Scale(scheme="viridis", domain=[0, 1]),
-                legend=alt.Legend(
-                    orient="bottom",
-                    direction="horizontal",
-                    gradientLength=140,
-                ),
-            ),
-            tooltip=[
-                "keyword_a:N",
-                "keyword_b:N",
-                "shared_records:Q",
-                "union_records:Q",
-                alt.Tooltip("jaccard:Q", format=".3f"),
-            ],
-        )
-    )
-    keyword_jaccard_heatmap_labels = (
-        alt.Chart(
-            keyword_jaccard.filter(
-                pl.col("heatmap_jaccard") == keyword_top_pair["jaccard"]
+    keyword_jaccard_chart = annotate_heatmap(
+        (
+            alt.Chart(keyword_jaccard)
+            .mark_rect()
+            .encode(
+                x=alt.X("keyword_a:N", title=None, sort=keyword_top25),
+                y=alt.Y("keyword_b:N", title=None, sort=keyword_top25),
+                color=alt.Color("jaccard:Q", title="Jaccard", scale=alt.Scale(scheme="viridis", domain=[0, 1])),
+                tooltip=["keyword_a:N", "keyword_b:N", "shared_records:Q", "union_records:Q", alt.Tooltip("jaccard:Q", format=".3f")],
             )
-        )
-        .mark_text(fontSize=8, fontWeight=700, color="white")
-        .encode(
-            x=alt.X("keyword_a:N", sort=keyword_top25),
-            y=alt.Y("keyword_b:N", sort=keyword_top25),
-            text=alt.Text("heatmap_jaccard:Q", format=".2f"),
-        )
-    )
-    keyword_jaccard_chart = (
-        keyword_jaccard_heatmap_base + keyword_jaccard_heatmap_labels
-    ).properties(
-        width="container",
-        height=620,
-        title=[
-            "Strongest top-25 retrieval overlap",
-            f"{keyword_top_pair['keyword_a']} + {keyword_top_pair['keyword_b']}",
-            f"Jaccard {keyword_top_pair['jaccard']:.3f}",
-        ],
+            .properties(
+                width="container",
+                height=620,
+                title=(
+                    f"{keyword_top_pair['keyword_a']} and {keyword_top_pair['keyword_b']} have the "
+                    f"strongest top-25 retrieval overlap (Jaccard {keyword_top_pair['jaccard']:.3f})"
+                ),
+            )
+        ),
+        keyword_jaccard,
+        "jaccard",
+        text_format=".2f",
+        high_values_are_dark=False,
+        font_size=7,
     )
     keyword_year_chart = annotate_heatmap(
         (
@@ -1320,11 +1275,8 @@ def render_keyword_overlap(
             "Dated coverage": keyword_year_chart,
             "Pairwise Jaccard": mo.vstack([
                 mo.md(
-                    "This is retrieval overlap, not a social network. Because Jaccard similarity "
-                    "is symmetric, only the lower triangle is shown; the diagonal is blank and "
-                    "mirrored duplicates are omitted. Only the strongest cell is labelled; exact "
-                    "values remain available in tooltips. See the separate network report for "
-                    "graph topology and temporal edge analysis."
+                    "This is retrieval overlap, not a social network. See the separate network "
+                    "report for graph topology and temporal edge analysis."
                 ),
                 keyword_jaccard_chart,
             ]),
