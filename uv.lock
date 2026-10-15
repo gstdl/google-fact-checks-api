@@ -343,50 +343,6 @@ wheels = [
 ]
 
 [[package]]
-name = "ddf-hoax-temporal"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "altair" },
-    { name = "google-auth" },
-    { name = "marimo" },
-    { name = "networkx" },
-    { name = "numpy" },
-    { name = "polars" },
-    { name = "python-dotenv" },
-    { name = "requests" },
-    { name = "sastrawi" },
-    { name = "scikit-learn" },
-    { name = "urllib3" },
-]
-
-[package.optional-dependencies]
-ner = [
-    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
-    { name = "transformers" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "altair" },
-    { name = "google-auth" },
-    { name = "marimo", specifier = "==0.24.0" },
-    { name = "networkx", specifier = ">=3.4,<4" },
-    { name = "numpy" },
-    { name = "polars" },
-    { name = "python-dotenv" },
-    { name = "requests" },
-    { name = "sastrawi" },
-    { name = "scikit-learn" },
-    { name = "torch", marker = "sys_platform == 'darwin' and extra == 'ner'", specifier = ">=2.6,<3" },
-    { name = "torch", marker = "sys_platform != 'darwin' and extra == 'ner'", specifier = ">=2.6,<3", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "ddf-hoax-temporal", extra = "ner" } },
-    { name = "transformers", marker = "extra == 'ner'", specifier = ">=4.48,<5" },
-    { name = "urllib3" },
-]
-provides-extras = ["ner"]
-
-[[package]]
 name = "docutils"
 version = "0.23"
 source = { registry = "https://pypi.org/simple" }
@@ -425,6 +381,56 @@ sdist = { url = "https://files.pythonhosted.org/packages/db/4c/fa42116a48bab3f7a
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/b3/6117b2f24065cd7e2c4f140e9a193e215f089ca8ba314cf91eb9d0b7fe0a/google_auth-2.56.3-py3-none-any.whl", hash = "sha256:8ec438808f813ad034535000261eed1067475d229d05bbf4216e78c3f2362e53", size = 259116, upload-time = "2026-08-06T06:22:51.788Z" },
 ]
+
+[[package]]
+name = "google-fact-check-api"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "altair" },
+    { name = "google-auth" },
+    { name = "marimo" },
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "polars" },
+    { name = "python-dotenv" },
+    { name = "requests" },
+    { name = "sastrawi" },
+    { name = "scikit-learn" },
+    { name = "urllib3" },
+]
+
+[package.optional-dependencies]
+ner = [
+    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "transformers" },
+]
+video = [
+    { name = "warcio" },
+    { name = "yt-dlp" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "altair" },
+    { name = "google-auth" },
+    { name = "marimo", specifier = "==0.24.0" },
+    { name = "networkx", specifier = ">=3.4,<4" },
+    { name = "numpy" },
+    { name = "polars" },
+    { name = "python-dotenv" },
+    { name = "requests" },
+    { name = "sastrawi" },
+    { name = "scikit-learn" },
+    { name = "torch", marker = "sys_platform == 'darwin' and extra == 'ner'", specifier = ">=2.6,<3" },
+    { name = "torch", marker = "sys_platform != 'darwin' and extra == 'ner'", specifier = ">=2.6,<3", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "google-fact-check-api", extra = "ner" } },
+    { name = "transformers", marker = "extra == 'ner'", specifier = ">=4.48,<5" },
+    { name = "urllib3" },
+    { name = "warcio", marker = "extra == 'video'", specifier = "==1.8.1" },
+    { name = "yt-dlp", marker = "extra == 'video'", specifier = "==2026.8.19" },
+]
+provides-extras = ["ner", "video"]
 
 [[package]]
 name = "h11"
@@ -1462,6 +1468,15 @@ wheels = [
 ]
 
 [[package]]
+name = "six"
+version = "1.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+]
+
+[[package]]
 name = "starlette"
 version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1661,6 +1676,18 @@ wheels = [
 ]
 
 [[package]]
+name = "warcio"
+version = "1.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/20/78/df7e1c40a3751ea966be84eb6645270831e511f9932740b5251ace028cfa/warcio-1.8.1.tar.gz", hash = "sha256:76f71b22159ca3c043521e10ee8a2478d167672ad1d137c7c15e40b0d5c73ccd", size = 65772, upload-time = "2026-03-31T16:10:32.196Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c5/be/d92c0899bd52c7f82fc0f8caa8fb3c624e6d1006ee208c710060cda216c2/warcio-1.8.1-py2.py3-none-any.whl", hash = "sha256:82345c5914d36cb5e0513210dbf759e3db348bf8d0f7762996ccce3a5ce6e87b", size = 41578, upload-time = "2026-03-31T16:10:31.059Z" },
+]
+
+[[package]]
 name = "websockets"
 version = "17.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1747,4 +1774,13 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/2c/9d9c1da5a7ea9af307b386d25f64d1dead4729644198d2b92e36db5dfd41/websockets-17.0.1-cp314-cp314t-win_amd64.whl", hash = "sha256:bb31f42ea095ea826463c770829aa188a86c9a5c976b1467cbbf583c811de833", size = 213094, upload-time = "2026-07-31T11:31:15.367Z" },
     { url = "https://files.pythonhosted.org/packages/5b/24/a585e7573e128070605d003b5544729bcd58d9756c7e99d550818ca4b916/websockets-17.0.1-cp314-cp314t-win_arm64.whl", hash = "sha256:dbfae8e75b342e31fc6fd1a8bbb393b7cbb91d6cfd581650300a94381e7b7e2b", size = 213009, upload-time = "2026-07-31T11:31:16.776Z" },
     { url = "https://files.pythonhosted.org/packages/09/ce/3929538b2b9918f5eee623fbf3346893973191f6df93f19bbda097bd7bb7/websockets-17.0.1-py3-none-any.whl", hash = "sha256:c6be9cba65c65cc76dfa3d4619e359ff02a4476c74e179b215236c11a0b32345", size = 206718, upload-time = "2026-07-31T11:31:26.037Z" },
+]
+
+[[package]]
+name = "yt-dlp"
+version = "2026.8.19"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/e0/832fa4ca334b766a06933a196066edc3dba37cdb6f14cd98d59bcc69a4b4/yt_dlp-2026.8.19.tar.gz", hash = "sha256:9e213e48cea35c66b378e4447903f118f6392a5fa380a2b6d7070ec86f4e0af1", size = 3052025, upload-time = "2026-08-19T23:48:59.291Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/69/b2/8cd1613f56eed7ceb64fbd4df3f1c01246bfb098e6f398228bafda22b80b/yt_dlp-2026.8.19-py3-none-any.whl", hash = "sha256:1d57897e94c6665a0a6f9bc54b34e584284e32c034ffab3a7df25d8f7b24eedf", size = 3185533, upload-time = "2026-08-19T23:48:56.925Z" },
 ]

@@ -23,6 +23,10 @@ ner = [
     "torch>=2.6,<3",
     "transformers>=4.48,<5",
 ]
+video = [
+    "warcio==1.8.1",
+    "yt-dlp==2026.8.19",
+]
 
 [tool.uv.sources]
 torch = [

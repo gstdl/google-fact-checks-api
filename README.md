@@ -31,6 +31,7 @@ These results describe this query-conditioned Google index snapshot. They do not
 | `docs/index.html` | Hand-maintained landing page. |
 | `scripts/build-static-site.sh` | Checks notebooks and atomically regenerates the seven report pages in `docs/`. |
 | `scripts/refresh-ner-entities.py` | Rebuilds the pinned Indonesian NER cache. |
+| `scripts/download-spike-videos.py` | Finds fact-checked election videos in the snapshot and downloads `--n` of them, live or from perma.cc archives, for the AI-detection spike test. |
 
 ## Prerequisites
 
@@ -112,6 +113,33 @@ The refresh uses:
 The tokenizer segments claim text and preserves offsets for overlapping-window inference; the token-classification model produces the entity predictions. Model files remain under `tmp/huggingface/`. Only the deterministic derived Parquet is written to `data/`, and an unchanged rerun does not rewrite it.
 
 The network notebook rejects a missing or stale cache by checking its source-text hash, model revision, tokenizer class, and inference settings. It does not silently fall back to live inference.
+
+## Download spike video samples
+
+The AI-detection spike test needs social media videos that fact-checkers reviewed. The script finds them from the snapshot Parquet rather than a fixed list:
+
+1. selects reviews whose `claim_text` contains `--keyword` (default `video`), whose claim date falls between `--start` and `--end` (default: the 28 November 2023 – 10 February 2024 campaign period), and that an election retrieval keyword matched (`--topic-keywords`);
+2. visits them oldest first and reads each fact-check article, from the Wayback Machine when the publisher refuses automated requests;
+3. collects the TikTok, Instagram, Facebook, and X posts the article cites, directly or through perma.cc, in order of first mention;
+4. downloads the first post that still has a video, live with `yt-dlp` or, for deleted posts, from the video stored in the perma.cc capture; and
+5. stops after `--n` reviews (default 5) have a video.
+
+Each run writes to `tmp/spike-videos/<epoch>/`, one folder per sample (`video.mp4`, plus `video.info.json` and captions for live downloads or `archive.warc.gz` for archived ones), and a `manifest.parquet` with provenance and checksums. The run folder appears only when all `--n` samples succeed; otherwise it is removed and the script exits with an error.
+
+```sh
+uv sync --extra video
+uv run --extra video python scripts/download-spike-videos.py --n 5
+```
+
+Behind a TLS-inspecting proxy, add `--system-certs` to `uv` commands, export the macOS keychain certificates, and point `SSL_CERT_FILE` at them; the script then trusts that bundle instead of `certifi`:
+
+```sh
+security find-certificate -a -p /Library/Keychains/System.keychain \
+  /System/Library/Keychains/SystemRootCertificates.keychain > tmp/ca.pem
+SSL_CERT_FILE=tmp/ca.pem uv run --system-certs --extra video python scripts/download-spike-videos.py
+```
+
+`ai_mentioned_in_review` flags reviews whose title or claim text mentions AI or deepfakes; it is a text match, not a verified label. With the defaults, the campaign-period reviews are rated as miscontextualized or unproven real footage. Fact-checks of AI-manipulated videos sit just before the campaign, for example `--start 2023-10-01 --end 2023-11-27`.
 
 ## Network semantics
 
